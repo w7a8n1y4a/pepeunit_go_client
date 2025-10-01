@@ -9,9 +9,9 @@ import (
 
 // LogEntry represents a single log entry
 type LogEntry struct {
-	Timestamp string `json:"timestamp"`
+	Timestamp string `json:"create_datetime"`
 	Level     string `json:"level"`
-	Message   string `json:"message"`
+	Message   string `json:"text"`
 }
 
 // Logger handles logging operations
@@ -23,6 +23,7 @@ type Logger struct {
 	logEntries   []LogEntry
 	mutex        sync.RWMutex
 	isPublishing bool // Flag to prevent recursive MQTT publishing
+	fileManager  *FileManager
 }
 
 // NewLogger creates a new logger instance
@@ -33,6 +34,7 @@ func NewLogger(logFilePath string, mqttClient MQTTClient, schema *SchemaManager,
 		schema:      schema,
 		settings:    settings,
 		logEntries:  make([]LogEntry, 0),
+		fileManager: NewFileManager(),
 	}
 
 	// Load existing log entries if file exists
@@ -47,8 +49,7 @@ func (l *Logger) loadExistingLogs() {
 		return
 	}
 
-	fm := NewFileManager()
-	if !fm.FileExists(l.logFilePath) {
+	if !l.fileManager.FileExists(l.logFilePath) {
 		return
 	}
 
@@ -84,10 +85,10 @@ func (l *Logger) loadEntriesFromArray(entries []interface{}) {
 			// Handle different field names from Python vs Go
 			var timestamp, level, message string
 
-			// Try Go field names first
-			if ts, exists := entryMap["timestamp"]; exists {
+			// Try Python field names first (preferred format)
+			if ts, exists := entryMap["create_datetime"]; exists {
 				timestamp = toString(ts)
-			} else if ts, exists := entryMap["create_datetime"]; exists {
+			} else if ts, exists := entryMap["timestamp"]; exists {
 				timestamp = toString(ts)
 			}
 
@@ -95,9 +96,9 @@ func (l *Logger) loadEntriesFromArray(entries []interface{}) {
 				level = toString(lvl)
 			}
 
-			if msg, exists := entryMap["message"]; exists {
+			if msg, exists := entryMap["text"]; exists {
 				message = toString(msg)
-			} else if msg, exists := entryMap["text"]; exists {
+			} else if msg, exists := entryMap["message"]; exists {
 				message = toString(msg)
 			}
 
@@ -111,32 +112,31 @@ func (l *Logger) loadEntriesFromArray(entries []interface{}) {
 	}
 }
 
-// saveLogs saves log entries to file
-func (l *Logger) saveLogs() error {
-	if l.logFilePath == "" {
-		return nil
-	}
-
-	l.mutex.RLock()
-	// Save as direct array like Python client, not wrapped in "entries"
-	logData := make([]map[string]interface{}, len(l.logEntries))
-	for i, entry := range l.logEntries {
-		logData[i] = map[string]interface{}{
-			"timestamp": entry.Timestamp,
-			"level":     entry.Level,
-			"message":   entry.Message,
-		}
-	}
-	l.mutex.RUnlock()
-
-	fm := NewFileManager()
-	return fm.WriteJSON(l.logFilePath, logData)
-}
-
 // log writes a log entry with the specified level
 func (l *Logger) log(level LogLevel, message string) {
+	// Check if we should log this level first (like Python client)
+	if !l.shouldPublishToMQTT(level) {
+		return
+	}
+
+	// Use UTC time like Python client
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+
+	// Create log entry with Python-compatible format
+	logEntry := map[string]interface{}{
+		"level":           string(level),
+		"text":            message,
+		"create_datetime": timestamp,
+	}
+
+	// Atomically append to file (like Python client)
+	if l.logFilePath != "" {
+		l.fileManager.AppendToJSONList(l.logFilePath, logEntry)
+	}
+
+	// Update in-memory cache
 	entry := LogEntry{
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: timestamp,
 		Level:     string(level),
 		Message:   message,
 	}
@@ -145,12 +145,9 @@ func (l *Logger) log(level LogLevel, message string) {
 	l.logEntries = append(l.logEntries, entry)
 	l.mutex.Unlock()
 
-	// Save to file
-	l.saveLogs()
-
-	// Publish to MQTT if client is available and log level is sufficient
-	if l.mqttClient != nil && l.shouldPublishToMQTT(level) {
-		l.publishToMQTT(entry)
+	// Publish to MQTT if client and schema are available (like Python client)
+	if l.mqttClient != nil && l.schema != nil {
+		l.publishToMQTT(logEntry)
 	}
 }
 
@@ -161,7 +158,7 @@ func (l *Logger) shouldPublishToMQTT(level LogLevel) bool {
 }
 
 // publishToMQTT publishes log entry to MQTT
-func (l *Logger) publishToMQTT(entry LogEntry) {
+func (l *Logger) publishToMQTT(logEntry map[string]interface{}) {
 	if l.schema == nil {
 		return
 	}
@@ -182,21 +179,20 @@ func (l *Logger) publishToMQTT(entry LogEntry) {
 		l.mutex.Unlock()
 	}()
 
+	// Get output base topics and check if log topic exists
 	outputBaseTopic := l.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeLogPepeunit)]; ok && len(topics) > 0 {
-		// Format like Python client: use "create_datetime" and "text" fields
-		logData := map[string]interface{}{
-			"level":           entry.Level,
-			"text":            entry.Message,
-			"create_datetime": entry.Timestamp,
-		}
-
-		logJSON, err := json.Marshal(logData)
+		logJSON, err := json.Marshal(logEntry)
 		if err != nil {
 			return
 		}
 
-		l.mqttClient.Publish(topics[0], string(logJSON))
+		// Publish to MQTT topic
+		err = l.mqttClient.Publish(topics[0], string(logJSON))
+		if err != nil {
+			// Log error but don't fail the log operation
+			// We can't use logger here as it would cause recursion
+		}
 	}
 }
 
@@ -225,15 +221,54 @@ func (l *Logger) Critical(message string) {
 	l.log(LogLevelCritical, message)
 }
 
-// GetFullLog returns all log entries
-func (l *Logger) GetFullLog() []LogEntry {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
+// GetFullLog returns all log entries in Python-compatible format
+func (l *Logger) GetFullLog() []map[string]interface{} {
+	if l.logFilePath == "" {
+		return []map[string]interface{}{}
+	}
 
-	// Return a copy to prevent external modification
-	logs := make([]LogEntry, len(l.logEntries))
-	copy(logs, l.logEntries)
-	return logs
+	if !l.fileManager.FileExists(l.logFilePath) {
+		return []map[string]interface{}{}
+	}
+
+	// Read directly from file
+	data, err := os.ReadFile(l.logFilePath)
+	if err != nil {
+		return []map[string]interface{}{}
+	}
+
+	var rawLogData []map[string]interface{}
+	if err := json.Unmarshal(data, &rawLogData); err != nil {
+		return []map[string]interface{}{}
+	}
+
+	// Convert to Python-compatible format
+	result := make([]map[string]interface{}, 0, len(rawLogData))
+	for _, entry := range rawLogData {
+		// Convert to Python format (level, text, create_datetime)
+		pythonEntry := map[string]interface{}{
+			"level":           entry["level"],
+			"text":            entry["text"],
+			"create_datetime": entry["create_datetime"],
+		}
+
+		// Handle legacy format (message, timestamp)
+		if text, exists := entry["text"]; exists {
+			pythonEntry["text"] = text
+		} else if message, exists := entry["message"]; exists {
+			pythonEntry["text"] = message
+		}
+
+		if createDatetime, exists := entry["create_datetime"]; exists {
+			pythonEntry["create_datetime"] = createDatetime
+		} else if timestamp, exists := entry["timestamp"]; exists {
+			pythonEntry["create_datetime"] = timestamp
+		}
+
+		result = append(result, pythonEntry)
+	}
+
+	return result
 }
 
 // ResetLog clears all log entries
@@ -242,7 +277,9 @@ func (l *Logger) ResetLog() {
 	defer l.mutex.Unlock()
 
 	l.logEntries = make([]LogEntry, 0)
-	l.saveLogs()
+	if l.logFilePath != "" {
+		l.fileManager.WriteJSON(l.logFilePath, []interface{}{})
+	}
 }
 
 // SetMQTTClient sets the MQTT client for log publishing

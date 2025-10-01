@@ -398,6 +398,12 @@ func (c *PepeunitClient) handleSchemaUpdate(ctx context.Context) {
 
 // handleLogSync handles log synchronization requests
 func (c *PepeunitClient) handleLogSync(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.logger.Error(fmt.Sprintf("Error during log sync: %v", r))
+		}
+	}()
+
 	outputBaseTopic := c.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeLogPepeunit)]; ok && len(topics) > 0 {
 		logData := c.logger.GetFullLog()

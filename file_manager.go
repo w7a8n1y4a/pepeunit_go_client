@@ -153,6 +153,30 @@ func (fm *FileManager) ExtractTarGz(archivePath, destDir string) error {
 	return nil
 }
 
+// AppendToJSONList appends an item to a JSON array file
+func (fm *FileManager) AppendToJSONList(filePath string, item interface{}) error {
+	var data []interface{}
+
+	// Read existing data if file exists
+	if fm.FileExists(filePath) {
+		fileData, err := os.ReadFile(filePath)
+		if err == nil {
+			json.Unmarshal(fileData, &data)
+		}
+	}
+
+	// Ensure data is a slice
+	if data == nil {
+		data = make([]interface{}, 0)
+	}
+
+	// Append new item
+	data = append(data, item)
+
+	// Write back to file
+	return fm.WriteJSON(filePath, data)
+}
+
 // CreateTarGz creates a tar.gz archive from a directory
 func (fm *FileManager) CreateTarGz(sourceDir, archivePath string) error {
 	file, err := os.Create(archivePath)

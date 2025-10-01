@@ -270,7 +270,7 @@ func (c *PepeunitClient) updateEnvSchemaOnly(ctx context.Context) error {
 // GetSystemState returns current system status information
 func (c *PepeunitClient) GetSystemState() map[string]interface{} {
 	state := map[string]interface{}{
-		"millis":         time.Now().UnixMilli(),
+		"millis":         int64(time.Now().Unix() * 1000), // Convert to milliseconds like Python client
 		"mem_free":       0,
 		"mem_alloc":      0,
 		"freq":           0,
@@ -610,7 +610,8 @@ func (c *PepeunitClient) baseMQTTOutputHandler(ctx context.Context) {
 	outputBaseTopic := c.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeStatePepeunit)]; ok && len(topics) > 0 {
 		c.mutex.RLock()
-		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.STATE_SEND_INTERVAL)*time.Second
+		// Use DELAY_PUB_MSG like Python client, not STATE_SEND_INTERVAL
+		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.DELAY_PUB_MSG)*time.Second
 		c.mutex.RUnlock()
 
 		if shouldSend {

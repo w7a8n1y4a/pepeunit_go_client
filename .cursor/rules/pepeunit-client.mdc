@@ -1,0 +1,30 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+## PRIORITY 1: Core Requirements (MUST follow)
+- Follow Go module standards with proper project structure
+- PepeunitClient is the ONLY public interface - all other types are internal
+- Implement ALL functionality specified in context/tz.md exactly as described
+- Use context/old_client.py as reference for MQTT/REST interaction patterns
+
+## PRIORITY 2: Code Organization (MUST follow)
+- Remove unused code: functions, methods, variables, types not referenced in codebase
+- No redundant implementations - one function per responsibility
+- No comments in code - code must be self-documenting
+- Use proper Go naming conventions and type organization
+- Follow Go idioms and best practices
+
+## PRIORITY 3: Project Constraints (MUST follow)  
+- Do not modify: .gitignore, README.md, go.mod, go.sum structure
+- No test files, no example files, no documentation files
+- Only create/modify files explicitly required by tz.md specifications
+
+## PRIORITY 4: Implementation Rules (MUST follow)
+- Only implement what is explicitly specified in user prompts
+- Use interfaces for dependency injection (MQTT/REST clients)
+- Handle missing dependencies gracefully with standard Go errors
+- No fmt.Println() statements - use proper error handling or logger
+- Return proper Go error types for error handling

@@ -2,6 +2,7 @@ package pepeunit
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"fmt"
 	"time"
@@ -27,11 +28,14 @@ func NewPepeunitMQTTClient(settings *Settings, schemaManager *SchemaManager, log
 
 // Connect connects to the MQTT broker
 func (c *PepeunitMQTTClient) Connect(ctx context.Context) error {
+	// Generate unique client ID like Python client
+	clientID := c.generateUniqueClientID()
+
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", c.Settings.MQTT_URL, c.Settings.MQTT_PORT))
-	opts.SetClientID("pepeunit_client")
-	opts.SetUsername("") // Add username if needed
-	opts.SetPassword("") // Add password if needed
+	opts.SetClientID(clientID)
+	opts.SetUsername(c.Settings.PEPEUNIT_TOKEN) // Use PEPEUNIT_TOKEN as username like Python client
+	opts.SetPassword("")                        // Empty password like Python client
 	opts.SetCleanSession(true)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
@@ -144,4 +148,16 @@ func (c *PepeunitMQTTClient) IsConnected() bool {
 // GetClient returns the underlying MQTT client
 func (c *PepeunitMQTTClient) GetClient() mqtt.Client {
 	return c.client
+}
+
+// generateUniqueClientID generates a unique client ID like Python's uuid.uuid4()
+func (c *PepeunitMQTTClient) generateUniqueClientID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+
+	// Format like UUID4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+	uuid := fmt.Sprintf("%x-%x-%x-%x-%x",
+		bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+
+	return uuid
 }

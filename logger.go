@@ -2,6 +2,7 @@ package pepeunit
 
 import (
 	"encoding/json"
+	"os"
 	"sync"
 	"time"
 )
@@ -15,12 +16,13 @@ type LogEntry struct {
 
 // Logger handles logging operations
 type Logger struct {
-	logFilePath string
-	mqttClient  MQTTClient
-	schema      *SchemaManager
-	settings    *Settings
-	logEntries  []LogEntry
-	mutex       sync.RWMutex
+	logFilePath  string
+	mqttClient   MQTTClient
+	schema       *SchemaManager
+	settings     *Settings
+	logEntries   []LogEntry
+	mutex        sync.RWMutex
+	isPublishing bool // Flag to prevent recursive MQTT publishing
 }
 
 // NewLogger creates a new logger instance
@@ -50,24 +52,61 @@ func (l *Logger) loadExistingLogs() {
 		return
 	}
 
-	logData, err := fm.ReadJSON(l.logFilePath)
+	// Read raw JSON data to handle both array and object formats
+	data, err := os.ReadFile(l.logFilePath)
 	if err != nil {
 		return
 	}
 
-	if entries, ok := logData["entries"].([]interface{}); ok {
-		l.mutex.Lock()
-		defer l.mutex.Unlock()
+	// Try to parse as array first (Python style)
+	var directEntries []interface{}
+	if err := json.Unmarshal(data, &directEntries); err == nil {
+		l.loadEntriesFromArray(directEntries)
+		return
+	}
 
-		for _, entry := range entries {
-			if entryMap, ok := entry.(map[string]interface{}); ok {
-				logEntry := LogEntry{
-					Timestamp: toString(entryMap["timestamp"]),
-					Level:     toString(entryMap["level"]),
-					Message:   toString(entryMap["message"]),
-				}
-				l.logEntries = append(l.logEntries, logEntry)
+	// Try to parse as object with "entries" key (Go style)
+	var logData map[string]interface{}
+	if err := json.Unmarshal(data, &logData); err == nil {
+		if wrappedEntries, ok := logData["entries"].([]interface{}); ok {
+			l.loadEntriesFromArray(wrappedEntries)
+		}
+	}
+}
+
+// loadEntriesFromArray loads log entries from an array
+func (l *Logger) loadEntriesFromArray(entries []interface{}) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	for _, entry := range entries {
+		if entryMap, ok := entry.(map[string]interface{}); ok {
+			// Handle different field names from Python vs Go
+			var timestamp, level, message string
+
+			// Try Go field names first
+			if ts, exists := entryMap["timestamp"]; exists {
+				timestamp = toString(ts)
+			} else if ts, exists := entryMap["create_datetime"]; exists {
+				timestamp = toString(ts)
 			}
+
+			if lvl, exists := entryMap["level"]; exists {
+				level = toString(lvl)
+			}
+
+			if msg, exists := entryMap["message"]; exists {
+				message = toString(msg)
+			} else if msg, exists := entryMap["text"]; exists {
+				message = toString(msg)
+			}
+
+			logEntry := LogEntry{
+				Timestamp: timestamp,
+				Level:     level,
+				Message:   message,
+			}
+			l.logEntries = append(l.logEntries, logEntry)
 		}
 	}
 }
@@ -79,8 +118,14 @@ func (l *Logger) saveLogs() error {
 	}
 
 	l.mutex.RLock()
-	logData := map[string]interface{}{
-		"entries": l.logEntries,
+	// Save as direct array like Python client, not wrapped in "entries"
+	logData := make([]map[string]interface{}, len(l.logEntries))
+	for i, entry := range l.logEntries {
+		logData[i] = map[string]interface{}{
+			"timestamp": entry.Timestamp,
+			"level":     entry.Level,
+			"message":   entry.Message,
+		}
 	}
 	l.mutex.RUnlock()
 
@@ -121,14 +166,37 @@ func (l *Logger) publishToMQTT(entry LogEntry) {
 		return
 	}
 
+	// Prevent recursive publishing
+	l.mutex.Lock()
+	if l.isPublishing {
+		l.mutex.Unlock()
+		return
+	}
+	l.isPublishing = true
+	l.mutex.Unlock()
+
+	// Ensure we reset the flag when done
+	defer func() {
+		l.mutex.Lock()
+		l.isPublishing = false
+		l.mutex.Unlock()
+	}()
+
 	outputBaseTopic := l.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeLogPepeunit)]; ok && len(topics) > 0 {
-		logData, err := json.Marshal(entry)
+		// Format like Python client: use "create_datetime" and "text" fields
+		logData := map[string]interface{}{
+			"level":           entry.Level,
+			"text":            entry.Message,
+			"create_datetime": entry.Timestamp,
+		}
+
+		logJSON, err := json.Marshal(logData)
 		if err != nil {
 			return
 		}
 
-		l.mqttClient.Publish(topics[0], string(logData))
+		l.mqttClient.Publish(topics[0], string(logJSON))
 	}
 }
 

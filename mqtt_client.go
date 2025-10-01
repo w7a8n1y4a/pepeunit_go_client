@@ -102,7 +102,6 @@ func (c *PepeunitMQTTClient) SubscribeTopics(topics []string) error {
 			c.Logger.Error(fmt.Sprintf("Failed to subscribe to topic %s: %v", topic, token.Error()))
 			return token.Error()
 		}
-		c.Logger.Info(fmt.Sprintf("Subscribed to topic: %s", topic))
 	}
 
 	return nil
@@ -120,7 +119,6 @@ func (c *PepeunitMQTTClient) Publish(topic, message string) error {
 		return token.Error()
 	}
 
-	c.Logger.Debug(fmt.Sprintf("Published to topic %s: %s", topic, message))
 	return nil
 }
 

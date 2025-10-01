@@ -125,17 +125,20 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Create a cancellable context for the main cycle
+	cycleCtx, cycleCancel := context.WithCancel(context.Background())
+
 	// Run the main cycle with set output handler in a goroutine
 	go func() {
-		client.RunMainCycle(ctx, handleOutputMessages)
+		client.RunMainCycle(cycleCtx, handleOutputMessages)
 	}()
 
 	// Wait for shutdown signal
 	<-sigChan
 	client.GetLogger().Info("Shutting down...")
 
-	// Stop the main cycle
-	client.StopMainCycle()
+	// Stop the main cycle by canceling the context
+	cycleCancel()
 
 	// Disconnect from MQTT
 	if client.GetMQTTClient() != nil {

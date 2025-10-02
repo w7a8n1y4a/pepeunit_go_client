@@ -58,8 +58,12 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 func handleOutputMessages(client *pepeunit.PepeunitClient) {
 	currentTime := time.Now()
 
-	// Send data every DELAY_PUB_MSG seconds, similar to _base_mqtt_output_handler
-	if currentTime.Sub(lastOutputSendTime) >= time.Duration(client.GetSettings().DELAY_PUB_MSG)*time.Second {
+	// Send data every DELAY_PUB_MSG from extras (fallback to STATE_SEND_INTERVAL)
+	delay, ok := client.GetSettings().GetInt("DELAY_PUB_MSG")
+	if !ok || delay <= 0 {
+		delay = client.GetSettings().STATE_SEND_INTERVAL
+	}
+	if currentTime.Sub(lastOutputSendTime) >= time.Duration(delay)*time.Second {
 		// message example
 		message := "12.45"
 

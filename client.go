@@ -616,8 +616,7 @@ func (c *PepeunitClient) baseMQTTOutputHandler(ctx context.Context) {
 	outputBaseTopic := c.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeStatePepeunit)]; ok && len(topics) > 0 {
 		c.mutex.RLock()
-		// Use DELAY_PUB_MSG like Python client, not STATE_SEND_INTERVAL
-		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.DELAY_PUB_MSG)*time.Second
+		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.STATE_SEND_INTERVAL)*time.Second
 		c.mutex.RUnlock()
 
 		if shouldSend {

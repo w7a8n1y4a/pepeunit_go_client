@@ -21,7 +21,7 @@ type Settings struct {
 	PING_INTERVAL              int
 	STATE_SEND_INTERVAL        int
 	MINIMAL_LOG_LEVEL          string
-	DELAY_PUB_MSG              int
+	extras                     map[string]interface{}
 }
 
 // NewSettings creates a new settings instance
@@ -41,7 +41,7 @@ func NewSettings(envFilePath string) *Settings {
 		PING_INTERVAL:              30,
 		STATE_SEND_INTERVAL:        300,
 		MINIMAL_LOG_LEVEL:          "Debug",
-		DELAY_PUB_MSG:              300,
+		extras:                     map[string]interface{}{},
 	}
 
 	if envFilePath != "" {
@@ -49,6 +49,14 @@ func NewSettings(envFilePath string) *Settings {
 	}
 
 	return settings
+}
+
+func NewSettingsWith(envFilePath string, kwargs map[string]interface{}) *Settings {
+	s := NewSettings(envFilePath)
+	if len(kwargs) > 0 {
+		_ = s.Update(kwargs)
+	}
+	return s
 }
 
 // LoadFromFile loads settings from the environment file
@@ -100,8 +108,11 @@ func (s *Settings) updateFromMap(data map[string]interface{}) error {
 			s.STATE_SEND_INTERVAL = toInt(value)
 		case "MINIMAL_LOG_LEVEL":
 			s.MINIMAL_LOG_LEVEL = toString(value)
-		case "DELAY_PUB_MSG":
-			s.DELAY_PUB_MSG = toInt(value)
+		default:
+			if s.extras == nil {
+				s.extras = map[string]interface{}{}
+			}
+			s.extras[key] = value
 		}
 	}
 	return nil
@@ -139,6 +150,122 @@ func (s *Settings) UpdateEnvFile(newEnvFilePath string) error {
 // Update updates specific settings
 func (s *Settings) Update(updates map[string]interface{}) error {
 	return s.updateFromMap(updates)
+}
+
+func (s *Settings) Set(key string, value interface{}) {
+	switch key {
+	case "PEPEUNIT_URL":
+		s.PEPEUNIT_URL = toString(value)
+	case "PEPEUNIT_APP_PREFIX":
+		s.PEPEUNIT_APP_PREFIX = toString(value)
+	case "PEPEUNIT_API_ACTUAL_PREFIX":
+		s.PEPEUNIT_API_ACTUAL_PREFIX = toString(value)
+	case "HTTP_TYPE":
+		s.HTTP_TYPE = toString(value)
+	case "MQTT_URL":
+		s.MQTT_URL = toString(value)
+	case "MQTT_PORT":
+		s.MQTT_PORT = toInt(value)
+	case "PEPEUNIT_TOKEN":
+		s.PEPEUNIT_TOKEN = toString(value)
+	case "SYNC_ENCRYPT_KEY":
+		s.SYNC_ENCRYPT_KEY = toString(value)
+	case "SECRET_KEY":
+		s.SECRET_KEY = toString(value)
+	case "COMMIT_VERSION":
+		s.COMMIT_VERSION = toString(value)
+	case "PING_INTERVAL":
+		s.PING_INTERVAL = toInt(value)
+	case "STATE_SEND_INTERVAL":
+		s.STATE_SEND_INTERVAL = toInt(value)
+	case "MINIMAL_LOG_LEVEL":
+		s.MINIMAL_LOG_LEVEL = toString(value)
+	default:
+		if s.extras == nil {
+			s.extras = map[string]interface{}{}
+		}
+		s.extras[key] = value
+	}
+}
+
+func (s *Settings) Get(key string) (interface{}, bool) {
+	switch key {
+	case "PEPEUNIT_URL":
+		return s.PEPEUNIT_URL, true
+	case "PEPEUNIT_APP_PREFIX":
+		return s.PEPEUNIT_APP_PREFIX, true
+	case "PEPEUNIT_API_ACTUAL_PREFIX":
+		return s.PEPEUNIT_API_ACTUAL_PREFIX, true
+	case "HTTP_TYPE":
+		return s.HTTP_TYPE, true
+	case "MQTT_URL":
+		return s.MQTT_URL, true
+	case "MQTT_PORT":
+		return s.MQTT_PORT, true
+	case "PEPEUNIT_TOKEN":
+		return s.PEPEUNIT_TOKEN, true
+	case "SYNC_ENCRYPT_KEY":
+		return s.SYNC_ENCRYPT_KEY, true
+	case "SECRET_KEY":
+		return s.SECRET_KEY, true
+	case "COMMIT_VERSION":
+		return s.COMMIT_VERSION, true
+	case "PING_INTERVAL":
+		return s.PING_INTERVAL, true
+	case "STATE_SEND_INTERVAL":
+		return s.STATE_SEND_INTERVAL, true
+	case "MINIMAL_LOG_LEVEL":
+		return s.MINIMAL_LOG_LEVEL, true
+	default:
+		if s.extras == nil {
+			return nil, false
+		}
+		v, ok := s.extras[key]
+		return v, ok
+	}
+}
+
+func (s *Settings) GetString(key string) (string, bool) {
+	v, ok := s.Get(key)
+	if !ok {
+		return "", false
+	}
+	return toString(v), true
+}
+
+func (s *Settings) GetInt(key string) (int, bool) {
+	v, ok := s.Get(key)
+	if !ok {
+		return 0, false
+	}
+	return toInt(v), true
+}
+
+func (s *Settings) Has(key string) bool {
+	_, ok := s.Get(key)
+	return ok
+}
+
+func (s *Settings) All() map[string]interface{} {
+	result := map[string]interface{}{
+		"PEPEUNIT_URL":               s.PEPEUNIT_URL,
+		"PEPEUNIT_APP_PREFIX":        s.PEPEUNIT_APP_PREFIX,
+		"PEPEUNIT_API_ACTUAL_PREFIX": s.PEPEUNIT_API_ACTUAL_PREFIX,
+		"HTTP_TYPE":                  s.HTTP_TYPE,
+		"MQTT_URL":                   s.MQTT_URL,
+		"MQTT_PORT":                  s.MQTT_PORT,
+		"PEPEUNIT_TOKEN":             s.PEPEUNIT_TOKEN,
+		"SYNC_ENCRYPT_KEY":           s.SYNC_ENCRYPT_KEY,
+		"SECRET_KEY":                 s.SECRET_KEY,
+		"COMMIT_VERSION":             s.COMMIT_VERSION,
+		"PING_INTERVAL":              s.PING_INTERVAL,
+		"STATE_SEND_INTERVAL":        s.STATE_SEND_INTERVAL,
+		"MINIMAL_LOG_LEVEL":          s.MINIMAL_LOG_LEVEL,
+	}
+	for k, v := range s.extras {
+		result[k] = v
+	}
+	return result
 }
 
 // Helper functions for type conversion

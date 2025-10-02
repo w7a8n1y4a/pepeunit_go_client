@@ -245,20 +245,22 @@ func (l *Logger) GetFullLog() []map[string]interface{} {
 	// Convert to Python-compatible format
 	result := make([]map[string]interface{}, 0, len(rawLogData))
 	for _, entry := range rawLogData {
-		// Convert to Python format (level, text, create_datetime)
-		pythonEntry := map[string]interface{}{
-			"level":           entry["level"],
-			"text":            entry["text"],
-			"create_datetime": entry["create_datetime"],
-		}
+		// Create Python-compatible entry
+		pythonEntry := make(map[string]interface{})
 
-		// Handle legacy format (message, timestamp)
+		// Handle text/message field
 		if text, exists := entry["text"]; exists {
 			pythonEntry["text"] = text
 		} else if message, exists := entry["message"]; exists {
 			pythonEntry["text"] = message
 		}
 
+		// Handle level field
+		if level, exists := entry["level"]; exists {
+			pythonEntry["level"] = level
+		}
+
+		// Handle timestamp field
 		if createDatetime, exists := entry["create_datetime"]; exists {
 			pythonEntry["create_datetime"] = createDatetime
 		} else if timestamp, exists := entry["timestamp"]; exists {

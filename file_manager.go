@@ -33,17 +33,23 @@ func (fm *FileManager) ReadJSON(filePath string) (map[string]interface{}, error)
 	}
 
 	var result map[string]interface{}
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(data, &result); err == nil {
+		return result, nil
 	}
 
-	return result, nil
+	var jsonString string
+	if err := json.Unmarshal(data, &jsonString); err == nil {
+		if err := json.Unmarshal([]byte(jsonString), &result); err == nil {
+			return result, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid JSON format in %s", filePath)
 }
 
 // WriteJSON writes data to a JSON file
 func (fm *FileManager) WriteJSON(filePath string, data interface{}) error {
-	jsonData, err := json.MarshalIndent(data, "", "  ")
+	jsonData, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return err
 	}

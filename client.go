@@ -19,23 +19,24 @@ import (
 
 // PepeunitClient is the main client for PepeUnit integration
 type PepeunitClient struct {
-	envFilePath    string
-	schemaFilePath string
-	logFilePath    string
-	enableMQTT     bool
-	enableREST     bool
-	cycleSpeed     time.Duration
-	restartMode    RestartMode
-	settings       *Settings
-	schema         *SchemaManager
-	logger         *Logger
-	mqttClient     MQTTClient
-	restClient     RESTClient
-	inputHandler   MQTTInputHandler
-	outputHandler  func(*PepeunitClient)
-	running        bool
-	lastStateSend  time.Time
-	mutex          sync.RWMutex
+	envFilePath         string
+	schemaFilePath      string
+	logFilePath         string
+	enableMQTT          bool
+	enableREST          bool
+	cycleSpeed          time.Duration
+	restartMode         RestartMode
+	settings            *Settings
+	schema              *SchemaManager
+	logger              *Logger
+	mqttClient          MQTTClient
+	restClient          RESTClient
+	inputHandler        MQTTInputHandler
+	outputHandler       func(*PepeunitClient)
+	customUpdateHandler func(*PepeunitClient, string) error
+	running             bool
+	lastStateSend       time.Time
+	mutex               sync.RWMutex
 }
 
 // PepeunitClientConfig holds configuration for creating a PepeunitClient
@@ -270,7 +271,7 @@ func (c *PepeunitClient) updateEnvSchemaOnly(ctx context.Context) error {
 // GetSystemState returns current system status information
 func (c *PepeunitClient) GetSystemState() map[string]interface{} {
 	state := map[string]interface{}{
-		"millis":         int64(time.Now().Unix() * 1000), // Convert to milliseconds like Python client
+		"millis":         time.Now().UnixMilli(),
 		"mem_free":       0,
 		"mem_alloc":      0,
 		"freq":           0,
@@ -342,6 +343,12 @@ func (c *PepeunitClient) baseMQTTInputFunc(msg MQTTMessage) {
 func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 	c.logger.Info("Update request received via MQTT")
 	if c.enableREST && c.restClient != nil {
+		if c.customUpdateHandler != nil {
+			if err := c.customUpdateHandler(c, payload); err != nil {
+				c.logger.Error(fmt.Sprintf("Failed to perform custom update: %v", err))
+			}
+			return
+		}
 		err := c.PerformUpdate(ctx)
 		if err != nil {
 			c.logger.Error(fmt.Sprintf("Failed to perform update: %v", err))
@@ -683,6 +690,13 @@ func (c *PepeunitClient) SetOutputHandler(outputHandler func(*PepeunitClient)) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.outputHandler = outputHandler
+}
+
+// SetCustomUpdateHandler sets a custom handler for program updates triggered via MQTT
+func (c *PepeunitClient) SetCustomUpdateHandler(handler func(*PepeunitClient, string) error) {
+	c.mutex.Lock()
+	c.customUpdateHandler = handler
+	c.mutex.Unlock()
 }
 
 // StopMainCycle stops the main application loop

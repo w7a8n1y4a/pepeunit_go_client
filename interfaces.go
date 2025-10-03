@@ -40,6 +40,9 @@ type RESTClient interface {
 	// DownloadSchema downloads topic schema configuration
 	DownloadSchema(ctx context.Context, unitUUID, filePath string) error
 
+	// DownloadFileFromURL downloads a file from an external URL
+	DownloadFileFromURL(ctx context.Context, url, filePath string) error
+
 	// SetStateStorage stores state data in PepeUnit storage
 	SetStateStorage(ctx context.Context, unitUUID string, state map[string]interface{}) error
 

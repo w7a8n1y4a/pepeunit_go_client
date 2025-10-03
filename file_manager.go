@@ -2,7 +2,9 @@ package pepeunit
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
+	"compress/zlib"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -105,13 +107,32 @@ func (fm *FileManager) ExtractTarGz(archivePath, destDir string) error {
 	}
 	defer file.Close()
 
-	gzReader, err := gzip.NewReader(file)
+	bufReader := bufio.NewReader(file)
+
+	// Detect header: gzip (1f 8b) vs zlib (RFC1950)
+	header, err := bufReader.Peek(2)
 	if err != nil {
 		return err
 	}
-	defer gzReader.Close()
 
-	tarReader := tar.NewReader(gzReader)
+	var decompressed io.ReadCloser
+	switch {
+	case len(header) >= 2 && header[0] == 0x1f && header[1] == 0x8b:
+		gz, err := gzip.NewReader(bufReader)
+		if err != nil {
+			return err
+		}
+		decompressed = gz
+	default:
+		zr, err := zlib.NewReader(bufReader)
+		if err != nil {
+			return err
+		}
+		decompressed = zr
+	}
+	defer decompressed.Close()
+
+	tarReader := tar.NewReader(decompressed)
 
 	for {
 		header, err := tarReader.Next()

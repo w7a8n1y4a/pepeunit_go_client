@@ -67,7 +67,8 @@ func (s *Settings) LoadFromFile() error {
 
 	fm := NewFileManager()
 	if !fm.FileExists(s.EnvFilePath) {
-		return fmt.Errorf("environment file does not exist: %s", s.EnvFilePath)
+		// Align with Python client: missing env file is a no-op
+		return nil
 	}
 
 	envData, err := fm.ReadJSON(s.EnvFilePath)

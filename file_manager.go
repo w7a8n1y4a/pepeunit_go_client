@@ -56,7 +56,12 @@ func (fm *FileManager) WriteJSON(filePath string, data interface{}) error {
 		return err
 	}
 
-	return os.WriteFile(filePath, jsonData, 0644)
+	perm := os.FileMode(0644)
+	if info, statErr := os.Stat(filePath); statErr == nil {
+		perm = info.Mode().Perm()
+	}
+
+	return writeFileAtomic(filePath, jsonData, perm)
 }
 
 // CopyFile copies a file from source to destination
@@ -182,26 +187,36 @@ func (fm *FileManager) ExtractTarGz(archivePath, destDir string) error {
 
 // AppendToJSONList appends an item to a JSON array file
 func (fm *FileManager) AppendToJSONList(filePath string, item interface{}) error {
-	var data []interface{}
+	var arrayData []interface{}
+	var objectData map[string]interface{}
+	writeAsObject := false
 
-	// Read existing data if file exists
 	if fm.FileExists(filePath) {
 		fileData, err := os.ReadFile(filePath)
 		if err == nil {
-			json.Unmarshal(fileData, &data)
+			if err := json.Unmarshal(fileData, &arrayData); err != nil {
+				if err := json.Unmarshal(fileData, &objectData); err == nil {
+					if entries, ok := objectData["entries"].([]interface{}); ok {
+						arrayData = entries
+						writeAsObject = true
+					}
+				}
+			}
 		}
 	}
 
-	// Ensure data is a slice
-	if data == nil {
-		data = make([]interface{}, 0)
+	if arrayData == nil {
+		arrayData = make([]interface{}, 0)
 	}
 
-	// Append new item
-	data = append(data, item)
+	arrayData = append(arrayData, item)
 
-	// Write back to file
-	return fm.WriteJSON(filePath, data)
+	if writeAsObject {
+		objectData["entries"] = arrayData
+		return fm.WriteJSON(filePath, objectData)
+	}
+
+	return fm.WriteJSON(filePath, arrayData)
 }
 
 // CreateTarGz creates a tar.gz archive from a directory
@@ -254,4 +269,43 @@ func (fm *FileManager) CreateTarGz(sourceDir, archivePath string) error {
 
 		return nil
 	})
+}
+
+func writeFileAtomic(filename string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(filename)
+	base := filepath.Base(filename)
+
+	f, err := os.CreateTemp(dir, "."+base+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := f.Name()
+
+	var writeErr error
+	_, writeErr = f.Write(data)
+	if writeErr == nil {
+		writeErr = f.Sync()
+	}
+	if closeErr := f.Close(); writeErr == nil && closeErr != nil {
+		writeErr = closeErr
+	}
+	if writeErr == nil {
+		if chmodErr := os.Chmod(tmpPath, perm); chmodErr != nil {
+			writeErr = chmodErr
+		}
+	}
+	if writeErr == nil {
+		writeErr = os.Rename(tmpPath, filename)
+	}
+	if writeErr == nil {
+		if df, derr := os.Open(dir); derr == nil {
+			_ = df.Sync()
+			_ = df.Close()
+		}
+	}
+	if writeErr != nil {
+		_ = os.Remove(tmpPath)
+		return writeErr
+	}
+	return nil
 }

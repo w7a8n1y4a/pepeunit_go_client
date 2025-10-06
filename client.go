@@ -173,11 +173,6 @@ func (c *PepeunitClient) SetCycleSpeed(speed time.Duration) error {
 
 // UpdateDeviceProgram updates the device program from a tar.gz archive
 func (c *PepeunitClient) UpdateDeviceProgram(ctx context.Context, archivePath string) error {
-	unitDirectory := filepath.Dir(c.envFilePath)
-	if unitDirectory == "" {
-		unitDirectory, _ = os.Getwd()
-	}
-
 	tempExtractDir, err := os.MkdirTemp("", "pepeunit_update_*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
@@ -191,58 +186,48 @@ func (c *PepeunitClient) UpdateDeviceProgram(ctx context.Context, archivePath st
 	}
 	c.logger.Info(fmt.Sprintf("Extracted archive to %s", tempExtractDir))
 
-	err = fm.CopyDirectoryContents(tempExtractDir, unitDirectory)
-	if err != nil {
-		return fmt.Errorf("failed to copy directory contents: %v", err)
-	}
-	c.logger.Info(fmt.Sprintf("Copied directory contents from %s to %s", tempExtractDir, unitDirectory))
-
-	switch c.restartMode {
-	case RestartModeRestartPopen:
-		c.StopMainCycle()
-		c.logger.Info("Run new main cycle in other process")
-
-		executable, err := os.Executable()
+	var foundEnv string
+	var foundSchema string
+	walkErr := filepath.Walk(tempExtractDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("failed to get executable path: %v", err)
+			return err
 		}
-
-		cmd := exec.Command(executable, os.Args[1:]...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-
-		err = cmd.Start()
-		if err != nil {
-			return fmt.Errorf("failed to start new process: %v", err)
+		if info.IsDir() {
+			return nil
 		}
-
-		c.logger.Info("I'll Be Back - stop this process")
-		os.Exit(0)
-
-	case RestartModeRestartExec:
-		c.StopMainCycle()
-		c.logger.Info("I'll Be Back - replacing current process")
-
-		executable, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("failed to get executable path: %v", err)
+		name := filepath.Base(path)
+		switch name {
+		case filepath.Base(c.envFilePath):
+			foundEnv = path
+		case filepath.Base(c.schemaFilePath):
+			foundSchema = path
+		case "env.json":
+			if foundEnv == "" {
+				foundEnv = path
+			}
+		case "schema.json":
+			if foundSchema == "" {
+				foundSchema = path
+			}
 		}
-
-		err = syscall.Exec(executable, os.Args, os.Environ())
-		if err != nil {
-			return fmt.Errorf("failed to exec new process: %v", err)
-		}
-
-	case RestartModeEnvSchemaOnly:
-		c.logger.Info("Updating env and schema only, without restart")
-		return c.updateEnvSchemaOnly(ctx)
-
-	case RestartModeNoRestart:
-		c.logger.Info("Archive extracted, no restart or updates performed")
+		return nil
+	})
+	if walkErr != nil {
+		return fmt.Errorf("failed to scan extracted files: %v", walkErr)
 	}
 
-	return nil
+	if foundEnv != "" {
+		if err := fm.CopyFile(foundEnv, c.envFilePath); err != nil {
+			return fmt.Errorf("failed to update env: %v", err)
+		}
+	}
+	if foundSchema != "" {
+		if err := fm.CopyFile(foundSchema, c.schemaFilePath); err != nil {
+			return fmt.Errorf("failed to update schema: %v", err)
+		}
+	}
+
+	return c.updateEnvSchemaOnly(ctx)
 }
 
 // updateEnvSchemaOnly updates only environment and schema files
@@ -342,20 +327,102 @@ func (c *PepeunitClient) baseMQTTInputFunc(msg MQTTMessage) {
 // handleUpdate handles update requests
 func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 	c.logger.Info("Update request received via MQTT")
-	if c.enableREST && c.restClient != nil {
-		if c.customUpdateHandler != nil {
-			if err := c.customUpdateHandler(c, payload); err != nil {
-				c.logger.Error(fmt.Sprintf("Failed to perform custom update: %v", err))
-			}
+	if !c.enableREST || c.restClient == nil {
+		c.logger.Warning("REST client not available for update")
+		return
+	}
+
+	if c.customUpdateHandler != nil {
+		if err := c.customUpdateHandler(c, payload); err != nil {
+			c.logger.Error(fmt.Sprintf("Failed to perform custom update: %v", err))
+		}
+		return
+	}
+
+	var meta map[string]interface{}
+	if err := json.Unmarshal([]byte(payload), &meta); err != nil {
+		c.logger.Error(fmt.Sprintf("Failed to parse payload: %v", err))
+		return
+	}
+
+	linkVal, ok := meta["COMPILED_FIRMWARE_LINK"]
+	if ok {
+		if err := c.PerformUpdate(ctx); err != nil {
+			c.logger.Error(fmt.Sprintf("Failed to update env/schema: %v", err))
 			return
 		}
-		err := c.PerformUpdate(ctx)
-		if err != nil {
-			c.logger.Error(fmt.Sprintf("Failed to perform update: %v", err))
+		linkStr, _ := linkVal.(string)
+		if linkStr != "" {
+			if err := c.UpdateBinaryFromURL(ctx, linkStr); err != nil {
+				c.logger.Error(fmt.Sprintf("Failed to update binary: %v", err))
+				return
+			}
+
+			switch c.restartMode {
+			case RestartModeRestartPopen:
+				c.StopMainCycle()
+				executable, err := os.Executable()
+				if err != nil {
+					c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+					return
+				}
+				cmd := exec.Command(executable, os.Args[1:]...)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Stdin = os.Stdin
+				if err := cmd.Start(); err != nil {
+					c.logger.Error(fmt.Sprintf("Failed to start new process: %v", err))
+					return
+				}
+				os.Exit(0)
+			case RestartModeRestartExec:
+				c.StopMainCycle()
+				executable, err := os.Executable()
+				if err != nil {
+					c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+					return
+				}
+				if err := syscall.Exec(executable, os.Args, os.Environ()); err != nil {
+					c.logger.Error(fmt.Sprintf("Failed to exec new process: %v", err))
+					return
+				}
+			case RestartModeEnvSchemaOnly:
+				return
+			case RestartModeNoRestart:
+				return
+			}
 		}
-	} else {
-		c.logger.Warning("REST client not available for update")
 	}
+}
+
+func (c *PepeunitClient) UpdateBinaryFromURL(ctx context.Context, firmwareURL string) error {
+	if !c.enableREST || c.restClient == nil {
+		return fmt.Errorf("REST client is not enabled or available")
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %v", err)
+	}
+	dir := filepath.Dir(executable)
+	tempPath := filepath.Join(dir, filepath.Base(executable)+".new")
+
+	if err := c.restClient.DownloadFileFromURL(ctx, firmwareURL, tempPath); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(tempPath, 0755); err != nil {
+		return fmt.Errorf("failed to set executable permissions: %v", err)
+	}
+
+	if err := os.Rename(tempPath, executable); err != nil {
+		_ = os.Remove(executable)
+		if err2 := os.Rename(tempPath, executable); err2 != nil {
+			return fmt.Errorf("failed to replace binary: %v", err2)
+		}
+	}
+
+	c.logger.Info("Binary file updated successfully")
+	return nil
 }
 
 // handleEnvUpdate handles environment update requests

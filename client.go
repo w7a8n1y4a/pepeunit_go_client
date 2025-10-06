@@ -421,7 +421,7 @@ func (c *PepeunitClient) UpdateBinaryFromURL(ctx context.Context, firmwareURL st
 		}
 	}
 
-	c.logger.Info("Binary file updated successfully")
+	c.logger.Info("Binary file downloaded successfully")
 	return nil
 }
 
@@ -625,7 +625,7 @@ func (c *PepeunitClient) PerformUpdate(ctx context.Context) error {
 		c.logger.Warning(fmt.Sprintf("Failed to remove temporary archive: %v", err))
 	}
 
-	c.logger.Info("Full update cycle completed successfully")
+	c.logger.Info("Schema and env updated successfully")
 	return nil
 }
 

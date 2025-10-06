@@ -1,4 +1,4 @@
-module github.com/w7an1y4a/pepeunit_go_client
+module github.com/w7a8n1y4a/pepeunit_go_client
 
 go 1.21
 

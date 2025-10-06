@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	pepeunit "github.com/w7an1y4a/pepeunit_go_client"
+	pepeunit "github.com/w7a8n1y4a/pepeunit_go_client"
 )
 
 // Global variable to track last message send time

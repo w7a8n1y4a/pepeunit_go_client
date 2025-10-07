@@ -19,7 +19,6 @@ alwaysApply: true
 
 ## PRIORITY 3: Project Constraints (MUST follow)  
 - Do not modify: .gitignore, README.md, go.mod, go.sum structure
-- No test files, no example files, no documentation files
 - Only create/modify files as needed for Go client implementation
 
 ## PRIORITY 4: Implementation Rules (MUST follow)

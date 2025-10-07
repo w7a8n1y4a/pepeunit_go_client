@@ -239,7 +239,22 @@ func (l *Logger) GetFullLog() []map[string]interface{} {
 
 	var rawLogData []map[string]interface{}
 	if err := json.Unmarshal(data, &rawLogData); err != nil {
-		return []map[string]interface{}{}
+		var obj map[string]interface{}
+		if err2 := json.Unmarshal(data, &obj); err2 == nil {
+			if entries, ok := obj["entries"].([]interface{}); ok {
+				tmp := make([]map[string]interface{}, 0, len(entries))
+				for _, e := range entries {
+					if m, ok := e.(map[string]interface{}); ok {
+						tmp = append(tmp, m)
+					}
+				}
+				rawLogData = tmp
+			} else {
+				return []map[string]interface{}{}
+			}
+		} else {
+			return []map[string]interface{}{}
+		}
 	}
 
 	// Convert to Python-compatible format

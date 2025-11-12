@@ -388,6 +388,7 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Stdin = os.Stdin
+				cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 				if err := cmd.Start(); err != nil {
 					c.logger.Error(fmt.Sprintf("Failed to start new process: %v", err))
 					return

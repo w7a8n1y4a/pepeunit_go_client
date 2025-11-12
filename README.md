@@ -35,6 +35,7 @@ import (
 
 // Global variable to track last message send time
 var lastOutputSendTime time.Time
+var inc int
 
 func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessage) {
 	topicParts := strings.Split(msg.Topic, "/")
@@ -59,17 +60,30 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 				return
 			}
 
-			// example logic
-			if intValue == 0 {
-				client.GetLogger().Info(fmt.Sprintf("Get message from input/pepeunit topics %d", intValue))
-			} else {
-				// send value to all topic by name
-				ctx := context.Background()
-				err = client.PublishToTopics(ctx, "output/pepeunit", strconv.Itoa(intValue))
-				if err != nil {
-					client.GetLogger().Error(fmt.Sprintf("Failed to publish message: %v", err))
+			ctx := context.Background()
+			if intValue < 10 {
+				// Store simple state string, matching Python client behavior
+				state := "This line is saved in Pepeunit Instance"
+				if client.GetRESTClient() != nil {
+					if err := client.GetRESTClient().SetStateStorage(ctx, state); err != nil {
+						client.GetLogger().Error(fmt.Sprintf("Failed set state: %v", err))
+					} else {
+						client.GetLogger().Info("Success set state")
+					}
 				}
 			}
+
+			if intValue > 10 && intValue < 20 {
+				if client.GetRESTClient() != nil {
+					if state, err := client.GetRESTClient().GetStateStorage(ctx); err == nil {
+						client.GetLogger().Info(fmt.Sprintf("Success get state: %s", state))
+					} else {
+						client.GetLogger().Error(fmt.Sprintf("Failed get state: %v", err))
+					}
+				}
+			}
+
+			client.GetLogger().Debug(fmt.Sprintf("Get from input/pepeunit: %d", intValue), true)
 		}
 	}
 }
@@ -83,47 +97,37 @@ func handleOutputMessages(client *pepeunit.PepeunitClient) {
 		delay = client.GetSettings().STATE_SEND_INTERVAL
 	}
 	if currentTime.Sub(lastOutputSendTime) >= time.Duration(delay)*time.Second {
-		// message example
-		message := "12.45"
-
-		client.GetLogger().Info(fmt.Sprintf("Send message to output/pepeunit topics: %s", message))
+		message := inc
+		client.GetLogger().Debug(fmt.Sprintf("Send to output/pepeunit: %d", message), true)
 
 		// Try to publish to sensor output topics
 		ctx := context.Background()
-		err := client.PublishToTopics(ctx, "output/pepeunit", message)
+		err := client.PublishToTopics(ctx, "output/pepeunit", strconv.Itoa(message))
 		if err != nil {
 			client.GetLogger().Error(fmt.Sprintf("Failed to publish message: %v", err))
 		}
 
 		// Update the last message send time
 		lastOutputSendTime = currentTime
+		inc++
 	}
 }
 
 func main() {
 	// Initialize the PepeUnit client
 	client, err := pepeunit.NewPepeunitClient(pepeunit.PepeunitClientConfig{
-		EnvFilePath:    "env.json",
-		SchemaFilePath: "schema.json",
-		LogFilePath:    "log.json",
-		EnableMQTT:     true,
-		EnableREST:     true,
-		CycleSpeed:     1 * time.Second, // 1 second cycle
-		RestartMode:    pepeunit.RestartModeRestartExec,
+		EnvFilePath:      "env.json",
+		SchemaFilePath:   "schema.json",
+		LogFilePath:      "log.json",
+		EnableMQTT:       true,
+		EnableREST:       true,
+		CycleSpeed:       1 * time.Second, // 1 second cycle
+		RestartMode:      pepeunit.RestartModeRestartExec,
+		SkipVersionCheck: true,
 	})
 
 	if err != nil {
 		log.Fatalf("Failed to create PepeUnit client: %v", err)
-	}
-
-	// Log startup
-	client.GetLogger().Debug("PepeUnit client created")
-
-	unitUUID, err := client.GetUnitUUID()
-	if err != nil {
-		client.GetLogger().Error(fmt.Sprintf("Failed to get unit UUID: %v", err))
-	} else {
-		client.GetLogger().Debug(fmt.Sprintf("Device UUID: %s", unitUUID))
 	}
 
 	// Set up message handlers

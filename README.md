@@ -258,8 +258,8 @@ client, _ := pepeunit.NewPepeunitClient(pepeunit.PepeunitClientConfig{
 - `DownloadUpdate(ctx, archivePath string) error`
 - `DownloadEnv(ctx, filePath string) error`
 - `DownloadSchema(ctx, filePath string) error`
-- `SetStateStorage(ctx context.Context, state map[string]interface{}) error`
-- `GetStateStorage(ctx context.Context) (map[string]interface{}, error)`
+- `SetStateStorage(ctx context.Context, state string) error`
+- `GetStateStorage(ctx context.Context) (string, error)`
 
 #### Combined (MQTT + REST)
 
@@ -272,6 +272,7 @@ Implements `MQTTClient` interface:
 - `Connect(ctx context.Context) error`
 - `Disconnect(ctx context.Context) error`
 - `SubscribeTopics(topics []string) error`
+- `UnsubscribeTopics(topics []string) error`
 - `Publish(topic, message string) error`
 - `SetInputHandler(handler MQTTInputHandler)`
 
@@ -279,11 +280,12 @@ Implements `MQTTClient` interface:
 
 Implements `RESTClient` interface:
 
-- `DownloadUpdate(ctx, unitUUID, filePath string) error`
-- `DownloadEnv(ctx, unitUUID, filePath string) error`
-- `DownloadSchema(ctx, unitUUID, filePath string) error`
-- `SetStateStorage(ctx, unitUUID string, state map[string]interface{}) error`
-- `GetStateStorage(ctx, unitUUID string) (map[string]interface{}, error)`
+- `DownloadUpdate(ctx context.Context, filePath string) error`
+- `DownloadEnv(ctx context.Context, filePath string) error`
+- `DownloadSchema(ctx context.Context, filePath string) error`
+- `DownloadFileFromURL(ctx context.Context, url, filePath string) error`
+- `SetStateStorage(ctx context.Context, state string) error`
+- `GetStateStorage(ctx context.Context) (string, error)`
 
 #### Settings
 
@@ -293,6 +295,7 @@ Environment-backed configuration loaded from `env.json`:
 - `MQTT_URL`, `MQTT_PORT`, `PEPEUNIT_TOKEN`
 - `SYNC_ENCRYPT_KEY`, `SECRET_KEY`, `COMMIT_VERSION`
 - `PING_INTERVAL`, `STATE_SEND_INTERVAL`, `MINIMAL_LOG_LEVEL`
+- `MAX_LOG_LENGTH`
 
 Helpers:
 

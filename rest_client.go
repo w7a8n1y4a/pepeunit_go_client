@@ -118,15 +118,16 @@ func (c *PepeunitRESTClient) DownloadFileFromURL(ctx context.Context, url, fileP
 }
 
 // SetStateStorage stores state data in PepeUnit storage
-func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID string, state map[string]interface{}) error {
-	url := c.GetBaseURL() + "/unit/" + unitUUID
+func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID string, state string) error {
+	url := c.GetBaseURL() + "/units/set_state_storage/" + unitUUID
 
-	jsonData, err := json.Marshal(state)
+	payload := map[string]interface{}{"state": state}
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal state data: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "PUT", url, io.NopCloser(strings.NewReader(string(jsonData))))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, io.NopCloser(strings.NewReader(string(jsonData))))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
@@ -144,7 +145,7 @@ func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID strin
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
@@ -153,12 +154,12 @@ func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID strin
 }
 
 // GetStateStorage retrieves state data from PepeUnit storage
-func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context, unitUUID string) (map[string]interface{}, error) {
-	url := c.GetBaseURL() + "/unit/" + unitUUID
+func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context, unitUUID string) (string, error) {
+	url := c.GetBaseURL() + "/units/get_state_storage/" + unitUUID
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
 	// Set headers
@@ -169,22 +170,21 @@ func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context, unitUUID strin
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
+		return "", fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode response: %v", err)
+		return "", fmt.Errorf("failed to read response: %v", err)
 	}
 
-	return result, nil
+	return string(body), nil
 }
 
 // downloadFile downloads a file from the given URL to the specified file path

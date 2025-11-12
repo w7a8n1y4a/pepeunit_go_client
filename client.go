@@ -26,6 +26,7 @@ type PepeunitClient struct {
 	enableREST          bool
 	cycleSpeed          time.Duration
 	restartMode         RestartMode
+	skipVersionCheck    bool
 	settings            *Settings
 	schema              *SchemaManager
 	logger              *Logger
@@ -37,19 +38,21 @@ type PepeunitClient struct {
 	running             bool
 	lastStateSend       time.Time
 	mutex               sync.RWMutex
+	subscribedTopics    map[string]struct{}
 }
 
 // PepeunitClientConfig holds configuration for creating a PepeunitClient
 type PepeunitClientConfig struct {
-	EnvFilePath    string
-	SchemaFilePath string
-	LogFilePath    string
-	EnableMQTT     bool
-	EnableREST     bool
-	CycleSpeed     time.Duration
-	RestartMode    RestartMode
-	MQTTClient     MQTTClient
-	RESTClient     RESTClient
+	EnvFilePath      string
+	SchemaFilePath   string
+	LogFilePath      string
+	EnableMQTT       bool
+	EnableREST       bool
+	CycleSpeed       time.Duration
+	RestartMode      RestartMode
+	SkipVersionCheck bool
+	MQTTClient       MQTTClient
+	RESTClient       RESTClient
 }
 
 // NewPepeunitClient creates a new PepeUnit client
@@ -83,17 +86,19 @@ func NewPepeunitClient(config PepeunitClientConfig) (*PepeunitClient, error) {
 	logger := NewLogger(config.LogFilePath, nil, schema, settings)
 
 	client := &PepeunitClient{
-		envFilePath:    config.EnvFilePath,
-		schemaFilePath: config.SchemaFilePath,
-		logFilePath:    config.LogFilePath,
-		enableMQTT:     config.EnableMQTT,
-		enableREST:     config.EnableREST,
-		cycleSpeed:     config.CycleSpeed,
-		restartMode:    config.RestartMode,
-		settings:       settings,
-		schema:         schema,
-		logger:         logger,
-		running:        false,
+		envFilePath:      config.EnvFilePath,
+		schemaFilePath:   config.SchemaFilePath,
+		logFilePath:      config.LogFilePath,
+		enableMQTT:       config.EnableMQTT,
+		enableREST:       config.EnableREST,
+		cycleSpeed:       config.CycleSpeed,
+		restartMode:      config.RestartMode,
+		skipVersionCheck: config.SkipVersionCheck,
+		settings:         settings,
+		schema:           schema,
+		logger:           logger,
+		running:          false,
+		subscribedTopics: make(map[string]struct{}),
 	}
 
 	// Initialize MQTT client
@@ -186,48 +191,51 @@ func (c *PepeunitClient) UpdateDeviceProgram(ctx context.Context, archivePath st
 	}
 	c.logger.Info(fmt.Sprintf("Extracted archive to %s", tempExtractDir))
 
-	var foundEnv string
-	var foundSchema string
-	walkErr := filepath.Walk(tempExtractDir, func(path string, info os.FileInfo, err error) error {
+	unitDir := filepath.Dir(c.envFilePath)
+	if unitDir == "" {
+		unitDir = "."
+	}
+	if err := fm.CopyDirectoryContents(tempExtractDir, unitDir); err != nil {
+		return fmt.Errorf("failed to copy extracted contents: %v", err)
+	}
+	c.logger.Info(fmt.Sprintf("Copied directory contents from %s to %s", tempExtractDir, unitDir))
+	if err := os.Remove(archivePath); err == nil {
+		c.logger.Info(fmt.Sprintf("Archive removed %s", archivePath))
+	}
+	c.logger.Info("Success extract archive", true)
+	switch c.restartMode {
+	case RestartModeRestartPopen:
+		c.StopMainCycle()
+		c.logger.Info("Run new main cycle in other process")
+		executable, err := os.Executable()
 		if err != nil {
-			return err
-		}
-		if info.IsDir() {
+			c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
 			return nil
 		}
-		name := filepath.Base(path)
-		switch name {
-		case filepath.Base(c.envFilePath):
-			foundEnv = path
-		case filepath.Base(c.schemaFilePath):
-			foundSchema = path
-		case "env.json":
-			if foundEnv == "" {
-				foundEnv = path
-			}
-		case "schema.json":
-			if foundSchema == "" {
-				foundSchema = path
-			}
+		cmd := exec.Command(executable, os.Args[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		_ = cmd.Start()
+		c.logger.Info("I`ll Be Back - stop this process")
+		os.Exit(0)
+	case RestartModeRestartExec:
+		c.StopMainCycle()
+		c.logger.Info("I`ll Be Back - replacing current process")
+		executable, err := os.Executable()
+		if err != nil {
+			c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+			return nil
 		}
+		_ = syscall.Exec(executable, os.Args, os.Environ())
+	case RestartModeEnvSchemaOnly:
+		c.logger.Info("Updating env and schema only, without restart")
+		return c.updateEnvSchemaOnly(ctx)
+	case RestartModeNoRestart:
+		c.logger.Info("Archive extracted, no restart or updates performed")
 		return nil
-	})
-	if walkErr != nil {
-		return fmt.Errorf("failed to scan extracted files: %v", walkErr)
 	}
-
-	if foundEnv != "" {
-		if err := fm.CopyFile(foundEnv, c.envFilePath); err != nil {
-			return fmt.Errorf("failed to update env: %v", err)
-		}
-	}
-	if foundSchema != "" {
-		if err := fm.CopyFile(foundSchema, c.schemaFilePath); err != nil {
-			return fmt.Errorf("failed to update schema: %v", err)
-		}
-	}
-
-	return c.updateEnvSchemaOnly(ctx)
+	return nil
 }
 
 // updateEnvSchemaOnly updates only environment and schema files
@@ -308,6 +316,7 @@ func (c *PepeunitClient) baseMQTTInputFunc(msg MQTTMessage) {
 		for _, topicURL := range topics {
 			if topic == topicURL {
 				ctx := context.Background()
+				c.logger.Info(fmt.Sprintf("Get base MQTT command: %s", topicKey))
 				switch topicKey {
 				case string(BaseInputTopicTypeUpdatePepeunit):
 					c.handleUpdate(ctx, payload)
@@ -326,7 +335,6 @@ func (c *PepeunitClient) baseMQTTInputFunc(msg MQTTMessage) {
 
 // handleUpdate handles update requests
 func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
-	c.logger.Info("Update request received via MQTT")
 	if !c.enableREST || c.restClient == nil {
 		c.logger.Warning("REST client not available for update")
 		return
@@ -345,9 +353,19 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 		return
 	}
 
+	if !c.skipVersionCheck {
+		if newVer, ok := meta["NEW_COMMIT_VERSION"].(string); ok && newVer != "" {
+			if c.settings.COMMIT_VERSION == newVer {
+				c.logger.Info("No update needed: current version = target version")
+				return
+			}
+		}
+	}
+
 	linkVal, ok := meta["COMPILED_FIRMWARE_LINK"]
 	if ok {
-		if err := c.PerformUpdate(ctx); err != nil {
+		// Update env and schema without restart to avoid preempting the binary swap
+		if err := c.updateEnvSchemaOnly(ctx); err != nil {
 			c.logger.Error(fmt.Sprintf("Failed to update env/schema: %v", err))
 			return
 		}
@@ -392,6 +410,8 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 				return
 			}
 		}
+	} else {
+		c.logger.Warning("COMPILED_FIRMWARE_LINK is missing in update payload")
 	}
 }
 
@@ -427,7 +447,6 @@ func (c *PepeunitClient) UpdateBinaryFromURL(ctx context.Context, firmwareURL st
 
 // handleEnvUpdate handles environment update requests
 func (c *PepeunitClient) handleEnvUpdate(ctx context.Context) {
-	c.logger.Info("Env update request received via MQTT")
 	if c.enableREST && c.restClient != nil {
 		unitUUID, err := c.GetUnitUUID()
 		if err != nil {
@@ -440,6 +459,7 @@ func (c *PepeunitClient) handleEnvUpdate(ctx context.Context) {
 			c.logger.Error(fmt.Sprintf("Failed to update env: %v", err))
 		} else {
 			c.settings.LoadFromFile()
+			c.logger.Info("Success update env")
 		}
 	} else {
 		c.logger.Warning("REST client not available for env update")
@@ -448,7 +468,6 @@ func (c *PepeunitClient) handleEnvUpdate(ctx context.Context) {
 
 // handleSchemaUpdate handles schema update requests
 func (c *PepeunitClient) handleSchemaUpdate(ctx context.Context) {
-	c.logger.Info("Schema update request received via MQTT")
 	if c.enableREST && c.restClient != nil {
 		unitUUID, err := c.GetUnitUUID()
 		if err != nil {
@@ -464,6 +483,7 @@ func (c *PepeunitClient) handleSchemaUpdate(ctx context.Context) {
 			if c.enableMQTT && c.mqttClient != nil {
 				c.SubscribeAllSchemaTopics(ctx)
 			}
+			c.logger.Info("Success update schema")
 		}
 	} else {
 		c.logger.Warning("REST client not available for schema update")
@@ -510,7 +530,7 @@ func (c *PepeunitClient) DownloadUpdate(ctx context.Context, archivePath string)
 		return err
 	}
 
-	c.logger.Info(fmt.Sprintf("Update archive downloaded to %s", archivePath))
+	c.logger.Info("Success download update archive", true)
 	return nil
 }
 
@@ -531,7 +551,7 @@ func (c *PepeunitClient) DownloadEnv(ctx context.Context, filePath string) error
 	}
 
 	c.settings.LoadFromFile()
-	c.logger.Info(fmt.Sprintf("Environment file downloaded and updated from %s", filePath))
+	c.logger.Info("Success update env")
 	return nil
 }
 
@@ -552,12 +572,15 @@ func (c *PepeunitClient) DownloadSchema(ctx context.Context, filePath string) er
 	}
 
 	c.schema.UpdateFromFile()
-	c.logger.Info(fmt.Sprintf("Schema file downloaded and updated from %s", filePath))
+	if c.enableMQTT && c.mqttClient != nil {
+		_ = c.SubscribeAllSchemaTopics(ctx)
+	}
+	c.logger.Info("Success update schema")
 	return nil
 }
 
 // SetStateStorage stores state data in PepeUnit storage
-func (c *PepeunitClient) SetStateStorage(ctx context.Context, state map[string]interface{}) error {
+func (c *PepeunitClient) SetStateStorage(ctx context.Context, state string) error {
 	if !c.enableREST || c.restClient == nil {
 		return fmt.Errorf("REST client is not enabled or available")
 	}
@@ -577,19 +600,19 @@ func (c *PepeunitClient) SetStateStorage(ctx context.Context, state map[string]i
 }
 
 // GetStateStorage retrieves state data from PepeUnit storage
-func (c *PepeunitClient) GetStateStorage(ctx context.Context) (map[string]interface{}, error) {
+func (c *PepeunitClient) GetStateStorage(ctx context.Context) (string, error) {
 	if !c.enableREST || c.restClient == nil {
-		return nil, fmt.Errorf("REST client is not enabled or available")
+		return "", fmt.Errorf("REST client is not enabled or available")
 	}
 
 	unitUUID, err := c.GetUnitUUID()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get unit UUID: %v", err)
+		return "", fmt.Errorf("failed to get unit UUID: %v", err)
 	}
 
 	state, err := c.restClient.GetStateStorage(ctx, unitUUID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	c.logger.Info("State retrieved from PepeUnit Unit Storage")
@@ -625,7 +648,7 @@ func (c *PepeunitClient) PerformUpdate(ctx context.Context) error {
 		c.logger.Warning(fmt.Sprintf("Failed to remove temporary archive: %v", err))
 	}
 
-	c.logger.Info("Schema and env updated successfully")
+	c.logger.Info("Full update cycle completed successfully")
 	return nil
 }
 
@@ -635,21 +658,56 @@ func (c *PepeunitClient) SubscribeAllSchemaTopics(ctx context.Context) error {
 		return fmt.Errorf("MQTT client is not enabled or available")
 	}
 
-	topics := make([]string, 0)
-
-	// Add input base topics
+	// Build desired topic set from schema
+	desiredSet := make(map[string]struct{})
 	inputBaseTopic := c.schema.GetInputBaseTopic()
 	for _, topicList := range inputBaseTopic {
-		topics = append(topics, topicList...)
+		for _, t := range topicList {
+			desiredSet[t] = struct{}{}
+		}
 	}
-
-	// Add input topics
 	inputTopic := c.schema.GetInputTopic()
 	for _, topicList := range inputTopic {
-		topics = append(topics, topicList...)
+		for _, t := range topicList {
+			desiredSet[t] = struct{}{}
+		}
 	}
 
-	return c.mqttClient.SubscribeTopics(topics)
+	// Snapshot current set
+	c.mutex.RLock()
+	currentSet := make(map[string]struct{}, len(c.subscribedTopics))
+	for t := range c.subscribedTopics {
+		currentSet[t] = struct{}{}
+	}
+	c.mutex.RUnlock()
+
+	// Compute diffs
+	toUnsub := make([]string, 0)
+	for t := range currentSet {
+		if _, ok := desiredSet[t]; !ok {
+			toUnsub = append(toUnsub, t)
+		}
+	}
+	toSub := make([]string, 0)
+	for t := range desiredSet {
+		if _, ok := currentSet[t]; !ok {
+			toSub = append(toSub, t)
+		}
+	}
+
+	// Apply changes
+	if err := c.mqttClient.UnsubscribeTopics(toUnsub); err != nil {
+		return err
+	}
+	if err := c.mqttClient.SubscribeTopics(toSub); err != nil {
+		return err
+	}
+
+	// Update current set
+	c.mutex.Lock()
+	c.subscribedTopics = desiredSet
+	c.mutex.Unlock()
+	return nil
 }
 
 // PublishToTopics publishes a message to all topics with the given key
@@ -734,7 +792,7 @@ func (c *PepeunitClient) RunMainCycle(ctx context.Context, outputHandler func(*P
 	for {
 		select {
 		case <-ctx.Done():
-			c.logger.Info("Main cycle stopped by context")
+			c.logger.Info("Main cycle stopped")
 			return
 		case <-ticker.C:
 			if !c.isRunning() {
@@ -768,7 +826,7 @@ func (c *PepeunitClient) SetCustomUpdateHandler(handler func(*PepeunitClient, st
 
 // StopMainCycle stops the main application loop
 func (c *PepeunitClient) StopMainCycle() {
-	c.logger.Info("Stop main cycle")
+	c.logger.Info("Main cycle stopped")
 	c.mutex.Lock()
 	c.running = false
 	c.mutex.Unlock()

@@ -62,7 +62,7 @@ func (c *PepeunitMQTTClient) Connect(ctx context.Context) error {
 	// Set on connect handler
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		c.connected = true
-		c.Logger.Info("MQTT connected successfully")
+		c.Logger.Info("Connected to MQTT Broker")
 	})
 
 	// Set reconnect handler
@@ -86,7 +86,7 @@ func (c *PepeunitMQTTClient) Disconnect(ctx context.Context) error {
 	if c.client != nil && c.client.IsConnected() {
 		c.client.Disconnect(250) // Wait 250ms for disconnect
 		c.connected = false
-		c.Logger.Info("MQTT client disconnected")
+		c.Logger.Info("Disconnected from MQTT Broker", true)
 	}
 	return nil
 }
@@ -104,6 +104,23 @@ func (c *PepeunitMQTTClient) SubscribeTopics(topics []string) error {
 		}
 	}
 
+	c.Logger.Info(fmt.Sprintf("Success subscribed to %d topics", len(topics)))
+	return nil
+}
+
+// UnsubscribeTopics unsubscribes from a list of MQTT topics
+func (c *PepeunitMQTTClient) UnsubscribeTopics(topics []string) error {
+	if c.client == nil || !c.client.IsConnected() {
+		return fmt.Errorf("MQTT client is not connected")
+	}
+	if len(topics) == 0 {
+		return nil
+	}
+	token := c.client.Unsubscribe(topics...)
+	if token.Wait() && token.Error() != nil {
+		c.Logger.Error(fmt.Sprintf("Failed to unsubscribe from topics: %v", token.Error()))
+		return token.Error()
+	}
 	return nil
 }
 
@@ -129,6 +146,11 @@ func (c *PepeunitMQTTClient) SetInputHandler(handler MQTTInputHandler) {
 
 // messageHandler handles incoming MQTT messages
 func (c *PepeunitMQTTClient) messageHandler(client mqtt.Client, msg mqtt.Message) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.Logger.Error(fmt.Sprintf("Error processing MQTT message: %v", r))
+		}
+	}()
 	if c.handler != nil {
 		mqttMsg := MQTTMessage{
 			Topic:   msg.Topic(),

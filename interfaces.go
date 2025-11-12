@@ -21,6 +21,8 @@ type MQTTClient interface {
 
 	// SubscribeTopics subscribes to a list of MQTT topics
 	SubscribeTopics(topics []string) error
+	// UnsubscribeTopics unsubscribes from a list of MQTT topics
+	UnsubscribeTopics(topics []string) error
 
 	// Publish publishes a message to a specific topic
 	Publish(topic, message string) error
@@ -44,10 +46,10 @@ type RESTClient interface {
 	DownloadFileFromURL(ctx context.Context, url, filePath string) error
 
 	// SetStateStorage stores state data in PepeUnit storage
-	SetStateStorage(ctx context.Context, unitUUID string, state map[string]interface{}) error
+	SetStateStorage(ctx context.Context, unitUUID string, state string) error
 
 	// GetStateStorage retrieves state data from PepeUnit storage
-	GetStateStorage(ctx context.Context, unitUUID string) (map[string]interface{}, error)
+	GetStateStorage(ctx context.Context, unitUUID string) (string, error)
 }
 
 // AbstractMQTTClient is an abstract base for MQTT clients

@@ -11,10 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 )
 
-// FileManager handles file operations
-type FileManager struct{}
+type FileManager struct {
+	pathLocks sync.Map
+}
 
 // NewFileManager creates a new file manager
 func NewFileManager() *FileManager {
@@ -217,6 +220,122 @@ func (fm *FileManager) AppendToJSONList(filePath string, item interface{}) error
 	}
 
 	return fm.WriteJSON(filePath, arrayData)
+}
+
+func (fm *FileManager) AppendNDJSONWithLimit(filePath string, item map[string]interface{}, maxLines int) error {
+	muIface, _ := fm.pathLocks.LoadOrStore(filePath, &sync.Mutex{})
+	mu := muIface.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+	dir := filepath.Dir(filePath)
+	if dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
+	}
+	if fm.FileExists(filePath) {
+		f, err := os.Open(filePath)
+		if err == nil {
+			reader := bufio.NewReader(f)
+			first, _ := reader.Peek(1)
+			_ = f.Close()
+			if len(first) == 1 && first[0] == '[' {
+				data, err := os.ReadFile(filePath)
+				if err == nil {
+					var arr []interface{}
+					if json.Unmarshal(data, &arr) == nil {
+						tmp := filePath + ".tmp"
+						tf, terr := os.Create(tmp)
+						if terr == nil {
+							enc := json.NewEncoder(tf)
+							for _, it := range arr {
+								_ = enc.Encode(it)
+							}
+							_ = tf.Close()
+							_ = os.Rename(tmp, filePath)
+						}
+					}
+				}
+			}
+		}
+	}
+	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	b, err := json.Marshal(item)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	_ = f.Sync()
+	if maxLines > 0 {
+		return fm.TrimNDJSON(filePath, maxLines)
+	}
+	return nil
+}
+
+func (fm *FileManager) IterNDJSON(filePath string) ([]map[string]interface{}, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return []map[string]interface{}{}, nil
+	}
+	defer f.Close()
+	result := make([]map[string]interface{}, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var obj map[string]interface{}
+		if json.Unmarshal([]byte(line), &obj) == nil {
+			result = append(result, obj)
+		}
+	}
+	return result, nil
+}
+
+func (fm *FileManager) TrimNDJSON(filePath string, maxLines int) error {
+	if maxLines <= 0 {
+		return nil
+	}
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	total := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		total++
+	}
+	if total <= maxLines {
+		return nil
+	}
+	_, _ = f.Seek(0, 0)
+	toSkip := total - maxLines
+	tmpPath := filePath + ".tmp"
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return nil
+	}
+	defer out.Close()
+	scanner = bufio.NewScanner(f)
+	for scanner.Scan() {
+		if toSkip > 0 {
+			toSkip--
+			continue
+		}
+		_, _ = out.WriteString(scanner.Text())
+		_, _ = out.WriteString("\n")
+	}
+	_ = out.Sync()
+	_ = os.Rename(tmpPath, filePath)
+	return nil
 }
 
 // CreateTarGz creates a tar.gz archive from a directory

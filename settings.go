@@ -20,7 +20,8 @@ type Settings struct {
 	COMMIT_VERSION             string
 	PING_INTERVAL              int
 	STATE_SEND_INTERVAL        int
-	MINIMAL_LOG_LEVEL          string
+	MIN_LOG_LEVEL              string
+	MAX_LOG_LENGTH             int
 	extras                     map[string]interface{}
 }
 
@@ -40,7 +41,8 @@ func NewSettings(envFilePath string) *Settings {
 		COMMIT_VERSION:             "",
 		PING_INTERVAL:              30,
 		STATE_SEND_INTERVAL:        300,
-		MINIMAL_LOG_LEVEL:          "Debug",
+		MIN_LOG_LEVEL:              "Debug",
+		MAX_LOG_LENGTH:             64,
 		extras:                     map[string]interface{}{},
 	}
 
@@ -107,8 +109,12 @@ func (s *Settings) updateFromMap(data map[string]interface{}) error {
 			s.PING_INTERVAL = toInt(value)
 		case "STATE_SEND_INTERVAL":
 			s.STATE_SEND_INTERVAL = toInt(value)
+		case "MIN_LOG_LEVEL":
+			s.MIN_LOG_LEVEL = toString(value)
 		case "MINIMAL_LOG_LEVEL":
-			s.MINIMAL_LOG_LEVEL = toString(value)
+			s.MIN_LOG_LEVEL = toString(value)
+		case "MAX_LOG_LENGTH":
+			s.MAX_LOG_LENGTH = toInt(value)
 		default:
 			if s.extras == nil {
 				s.extras = map[string]interface{}{}
@@ -179,8 +185,12 @@ func (s *Settings) Set(key string, value interface{}) {
 		s.PING_INTERVAL = toInt(value)
 	case "STATE_SEND_INTERVAL":
 		s.STATE_SEND_INTERVAL = toInt(value)
+	case "MIN_LOG_LEVEL":
+		s.MIN_LOG_LEVEL = toString(value)
 	case "MINIMAL_LOG_LEVEL":
-		s.MINIMAL_LOG_LEVEL = toString(value)
+		s.MIN_LOG_LEVEL = toString(value)
+	case "MAX_LOG_LENGTH":
+		s.MAX_LOG_LENGTH = toInt(value)
 	default:
 		if s.extras == nil {
 			s.extras = map[string]interface{}{}
@@ -215,8 +225,10 @@ func (s *Settings) Get(key string) (interface{}, bool) {
 		return s.PING_INTERVAL, true
 	case "STATE_SEND_INTERVAL":
 		return s.STATE_SEND_INTERVAL, true
-	case "MINIMAL_LOG_LEVEL":
-		return s.MINIMAL_LOG_LEVEL, true
+	case "MIN_LOG_LEVEL":
+		return s.MIN_LOG_LEVEL, true
+	case "MAX_LOG_LENGTH":
+		return s.MAX_LOG_LENGTH, true
 	default:
 		if s.extras == nil {
 			return nil, false
@@ -261,7 +273,8 @@ func (s *Settings) All() map[string]interface{} {
 		"COMMIT_VERSION":             s.COMMIT_VERSION,
 		"PING_INTERVAL":              s.PING_INTERVAL,
 		"STATE_SEND_INTERVAL":        s.STATE_SEND_INTERVAL,
-		"MINIMAL_LOG_LEVEL":          s.MINIMAL_LOG_LEVEL,
+		"MIN_LOG_LEVEL":              s.MIN_LOG_LEVEL,
+		"MAX_LOG_LENGTH":             s.MAX_LOG_LENGTH,
 	}
 	for k, v := range s.extras {
 		result[k] = v

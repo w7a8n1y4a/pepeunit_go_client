@@ -113,28 +113,23 @@ func (l *Logger) loadEntriesFromArray(entries []interface{}) {
 }
 
 // log writes a log entry with the specified level
-func (l *Logger) log(level LogLevel, message string) {
-	// Check if we should log this level first (like Python client)
+func (l *Logger) log(level LogLevel, message string, fileOnly bool) {
 	if !l.shouldPublishToMQTT(level) {
 		return
 	}
 
-	// Use UTC time like Python client
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 
-	// Create log entry with Python-compatible format
 	logEntry := map[string]interface{}{
 		"level":           string(level),
 		"text":            message,
 		"create_datetime": timestamp,
 	}
 
-	// Atomically append to file (like Python client)
 	if l.logFilePath != "" {
-		l.fileManager.AppendToJSONList(l.logFilePath, logEntry)
+		_ = l.fileManager.AppendNDJSONWithLimit(l.logFilePath, logEntry, l.settings.MAX_LOG_LENGTH)
 	}
 
-	// Update in-memory cache
 	entry := LogEntry{
 		Timestamp: timestamp,
 		Level:     string(level),
@@ -145,15 +140,14 @@ func (l *Logger) log(level LogLevel, message string) {
 	l.logEntries = append(l.logEntries, entry)
 	l.mutex.Unlock()
 
-	// Publish to MQTT if client and schema are available (like Python client)
-	if l.mqttClient != nil && l.schema != nil {
+	if !fileOnly && l.mqttClient != nil && l.schema != nil {
 		l.publishToMQTT(logEntry)
 	}
 }
 
 // shouldPublishToMQTT checks if the log level should be published to MQTT
 func (l *Logger) shouldPublishToMQTT(level LogLevel) bool {
-	minLevel := LogLevel(l.settings.MINIMAL_LOG_LEVEL)
+	minLevel := LogLevel(l.settings.MIN_LOG_LEVEL)
 	return level.GetIntLevel() >= minLevel.GetIntLevel()
 }
 
@@ -197,28 +191,33 @@ func (l *Logger) publishToMQTT(logEntry map[string]interface{}) {
 }
 
 // Debug logs a debug message
-func (l *Logger) Debug(message string) {
-	l.log(LogLevelDebug, message)
+func (l *Logger) Debug(message string, fileOnly ...bool) {
+	fo := len(fileOnly) > 0 && fileOnly[0]
+	l.log(LogLevelDebug, message, fo)
 }
 
 // Info logs an info message
-func (l *Logger) Info(message string) {
-	l.log(LogLevelInfo, message)
+func (l *Logger) Info(message string, fileOnly ...bool) {
+	fo := len(fileOnly) > 0 && fileOnly[0]
+	l.log(LogLevelInfo, message, fo)
 }
 
 // Warning logs a warning message
-func (l *Logger) Warning(message string) {
-	l.log(LogLevelWarning, message)
+func (l *Logger) Warning(message string, fileOnly ...bool) {
+	fo := len(fileOnly) > 0 && fileOnly[0]
+	l.log(LogLevelWarning, message, fo)
 }
 
 // Error logs an error message
-func (l *Logger) Error(message string) {
-	l.log(LogLevelError, message)
+func (l *Logger) Error(message string, fileOnly ...bool) {
+	fo := len(fileOnly) > 0 && fileOnly[0]
+	l.log(LogLevelError, message, fo)
 }
 
 // Critical logs a critical message
-func (l *Logger) Critical(message string) {
-	l.log(LogLevelCritical, message)
+func (l *Logger) Critical(message string, fileOnly ...bool) {
+	fo := len(fileOnly) > 0 && fileOnly[0]
+	l.log(LogLevelCritical, message, fo)
 }
 
 // GetFullLog returns all log entries in Python-compatible format
@@ -230,62 +229,11 @@ func (l *Logger) GetFullLog() []map[string]interface{} {
 	if !l.fileManager.FileExists(l.logFilePath) {
 		return []map[string]interface{}{}
 	}
-
-	// Read directly from file
-	data, err := os.ReadFile(l.logFilePath)
+	entries, err := l.fileManager.IterNDJSON(l.logFilePath)
 	if err != nil {
 		return []map[string]interface{}{}
 	}
-
-	var rawLogData []map[string]interface{}
-	if err := json.Unmarshal(data, &rawLogData); err != nil {
-		var obj map[string]interface{}
-		if err2 := json.Unmarshal(data, &obj); err2 == nil {
-			if entries, ok := obj["entries"].([]interface{}); ok {
-				tmp := make([]map[string]interface{}, 0, len(entries))
-				for _, e := range entries {
-					if m, ok := e.(map[string]interface{}); ok {
-						tmp = append(tmp, m)
-					}
-				}
-				rawLogData = tmp
-			} else {
-				return []map[string]interface{}{}
-			}
-		} else {
-			return []map[string]interface{}{}
-		}
-	}
-
-	// Convert to Python-compatible format
-	result := make([]map[string]interface{}, 0, len(rawLogData))
-	for _, entry := range rawLogData {
-		// Create Python-compatible entry
-		pythonEntry := make(map[string]interface{})
-
-		// Handle text/message field
-		if text, exists := entry["text"]; exists {
-			pythonEntry["text"] = text
-		} else if message, exists := entry["message"]; exists {
-			pythonEntry["text"] = message
-		}
-
-		// Handle level field
-		if level, exists := entry["level"]; exists {
-			pythonEntry["level"] = level
-		}
-
-		// Handle timestamp field
-		if createDatetime, exists := entry["create_datetime"]; exists {
-			pythonEntry["create_datetime"] = createDatetime
-		} else if timestamp, exists := entry["timestamp"]; exists {
-			pythonEntry["create_datetime"] = timestamp
-		}
-
-		result = append(result, pythonEntry)
-	}
-
-	return result
+	return entries
 }
 
 // ResetLog clears all log entries

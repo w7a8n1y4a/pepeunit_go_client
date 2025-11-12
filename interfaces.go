@@ -34,22 +34,22 @@ type MQTTClient interface {
 // RESTClient interface for REST API operations
 type RESTClient interface {
 	// DownloadUpdate downloads firmware update archive
-	DownloadUpdate(ctx context.Context, unitUUID, filePath string) error
+	DownloadUpdate(ctx context.Context, filePath string) error
 
 	// DownloadEnv downloads environment configuration
-	DownloadEnv(ctx context.Context, unitUUID, filePath string) error
+	DownloadEnv(ctx context.Context, filePath string) error
 
 	// DownloadSchema downloads topic schema configuration
-	DownloadSchema(ctx context.Context, unitUUID, filePath string) error
+	DownloadSchema(ctx context.Context, filePath string) error
 
 	// DownloadFileFromURL downloads a file from an external URL
 	DownloadFileFromURL(ctx context.Context, url, filePath string) error
 
 	// SetStateStorage stores state data in PepeUnit storage
-	SetStateStorage(ctx context.Context, unitUUID string, state string) error
+	SetStateStorage(ctx context.Context, state string) error
 
 	// GetStateStorage retrieves state data from PepeUnit storage
-	GetStateStorage(ctx context.Context, unitUUID string) (string, error)
+	GetStateStorage(ctx context.Context) (string, error)
 }
 
 // AbstractMQTTClient is an abstract base for MQTT clients

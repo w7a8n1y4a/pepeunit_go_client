@@ -43,15 +43,10 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 
 			ctx := context.Background()
 			if intValue < 10 {
-				unitUUID, uerr := client.GetUnitUUID()
-				if uerr != nil {
-					client.GetLogger().Error(fmt.Sprintf("Failed to get unit UUID: %v", uerr))
-					return
-				}
 				// Store simple state string, matching Python client behavior
 				state := "This line is saved in Pepeunit Instance"
 				if client.GetRESTClient() != nil {
-					if err := client.GetRESTClient().SetStateStorage(ctx, unitUUID, state); err != nil {
+					if err := client.GetRESTClient().SetStateStorage(ctx, state); err != nil {
 						client.GetLogger().Error(fmt.Sprintf("Failed set state: %v", err))
 					} else {
 						client.GetLogger().Info("Success set state")
@@ -60,13 +55,8 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 			}
 
 			if intValue > 10 && intValue < 20 {
-				unitUUID, uerr := client.GetUnitUUID()
-				if uerr != nil {
-					client.GetLogger().Error(fmt.Sprintf("Failed to get unit UUID: %v", uerr))
-					return
-				}
 				if client.GetRESTClient() != nil {
-					if state, err := client.GetRESTClient().GetStateStorage(ctx, unitUUID); err == nil {
+					if state, err := client.GetRESTClient().GetStateStorage(ctx); err == nil {
 						client.GetLogger().Info(fmt.Sprintf("Success get state: %s", state))
 					} else {
 						client.GetLogger().Error(fmt.Sprintf("Failed get state: %v", err))

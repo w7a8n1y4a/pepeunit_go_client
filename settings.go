@@ -1,8 +1,11 @@
 package pepeunit
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // Settings manages configuration settings
@@ -304,4 +307,33 @@ func toInt(value interface{}) int {
 		}
 	}
 	return 0
+}
+
+// UnitUUID extracts the unit UUID from the JWT token in settings
+func (s *Settings) UnitUUID() (string, error) {
+	tokenParts := strings.Split(s.PEPEUNIT_TOKEN, ".")
+	if len(tokenParts) != 3 {
+		return "", fmt.Errorf("invalid JWT token format")
+	}
+	payload := tokenParts[1]
+	for len(payload)%4 != 0 {
+		payload += "="
+	}
+	decodedPayload, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode JWT payload: %v", err)
+	}
+	var payloadData map[string]interface{}
+	if err := json.Unmarshal(decodedPayload, &payloadData); err != nil {
+		return "", fmt.Errorf("failed to parse JWT payload: %v", err)
+	}
+	uuidValue, ok := payloadData["uuid"]
+	if !ok {
+		return "", fmt.Errorf("UUID not found in JWT token")
+	}
+	uuidStr, ok := uuidValue.(string)
+	if !ok {
+		return "", fmt.Errorf("UUID is not a string")
+	}
+	return uuidStr, nil
 }

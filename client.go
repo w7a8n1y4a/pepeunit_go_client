@@ -2,7 +2,6 @@ package pepeunit
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -125,39 +124,7 @@ func NewPepeunitClient(config PepeunitClientConfig) (*PepeunitClient, error) {
 
 // GetUnitUUID extracts the unit UUID from the JWT token
 func (c *PepeunitClient) GetUnitUUID() (string, error) {
-	tokenParts := splitToken(c.settings.PEPEUNIT_TOKEN)
-	if len(tokenParts) != 3 {
-		return "", fmt.Errorf("invalid JWT token format")
-	}
-
-	payload := tokenParts[1]
-	// Add padding if needed
-	for len(payload)%4 != 0 {
-		payload += "="
-	}
-
-	decodedPayload, err := base64.URLEncoding.DecodeString(payload)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode JWT payload: %v", err)
-	}
-
-	var payloadData map[string]interface{}
-	err = json.Unmarshal(decodedPayload, &payloadData)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse JWT payload: %v", err)
-	}
-
-	uuidValue, ok := payloadData["uuid"]
-	if !ok {
-		return "", fmt.Errorf("UUID not found in JWT token")
-	}
-
-	uuidStr, ok := uuidValue.(string)
-	if !ok {
-		return "", fmt.Errorf("UUID is not a string")
-	}
-
-	return uuidStr, nil
+	return c.settings.UnitUUID()
 }
 
 // splitToken splits a JWT token into its parts
@@ -449,13 +416,7 @@ func (c *PepeunitClient) UpdateBinaryFromURL(ctx context.Context, firmwareURL st
 // handleEnvUpdate handles environment update requests
 func (c *PepeunitClient) handleEnvUpdate(ctx context.Context) {
 	if c.enableREST && c.restClient != nil {
-		unitUUID, err := c.GetUnitUUID()
-		if err != nil {
-			c.logger.Error(fmt.Sprintf("Failed to get unit UUID: %v", err))
-			return
-		}
-
-		err = c.restClient.DownloadEnv(ctx, unitUUID, c.envFilePath)
+		err := c.restClient.DownloadEnv(ctx, c.envFilePath)
 		if err != nil {
 			c.logger.Error(fmt.Sprintf("Failed to update env: %v", err))
 		} else {
@@ -470,13 +431,7 @@ func (c *PepeunitClient) handleEnvUpdate(ctx context.Context) {
 // handleSchemaUpdate handles schema update requests
 func (c *PepeunitClient) handleSchemaUpdate(ctx context.Context) {
 	if c.enableREST && c.restClient != nil {
-		unitUUID, err := c.GetUnitUUID()
-		if err != nil {
-			c.logger.Error(fmt.Sprintf("Failed to get unit UUID: %v", err))
-			return
-		}
-
-		err = c.restClient.DownloadSchema(ctx, unitUUID, c.schemaFilePath)
+		err := c.restClient.DownloadSchema(ctx, c.schemaFilePath)
 		if err != nil {
 			c.logger.Error(fmt.Sprintf("Failed to update schema: %v", err))
 		} else {
@@ -521,12 +476,7 @@ func (c *PepeunitClient) DownloadUpdate(ctx context.Context, archivePath string)
 		return fmt.Errorf("REST client is not enabled or available")
 	}
 
-	unitUUID, err := c.GetUnitUUID()
-	if err != nil {
-		return fmt.Errorf("failed to get unit UUID: %v", err)
-	}
-
-	err = c.restClient.DownloadUpdate(ctx, unitUUID, archivePath)
+	err := c.restClient.DownloadUpdate(ctx, archivePath)
 	if err != nil {
 		return err
 	}
@@ -541,12 +491,7 @@ func (c *PepeunitClient) DownloadEnv(ctx context.Context, filePath string) error
 		return fmt.Errorf("REST client is not enabled or available")
 	}
 
-	unitUUID, err := c.GetUnitUUID()
-	if err != nil {
-		return fmt.Errorf("failed to get unit UUID: %v", err)
-	}
-
-	err = c.restClient.DownloadEnv(ctx, unitUUID, filePath)
+	err := c.restClient.DownloadEnv(ctx, filePath)
 	if err != nil {
 		return err
 	}
@@ -562,12 +507,7 @@ func (c *PepeunitClient) DownloadSchema(ctx context.Context, filePath string) er
 		return fmt.Errorf("REST client is not enabled or available")
 	}
 
-	unitUUID, err := c.GetUnitUUID()
-	if err != nil {
-		return fmt.Errorf("failed to get unit UUID: %v", err)
-	}
-
-	err = c.restClient.DownloadSchema(ctx, unitUUID, filePath)
+	err := c.restClient.DownloadSchema(ctx, filePath)
 	if err != nil {
 		return err
 	}
@@ -586,12 +526,7 @@ func (c *PepeunitClient) SetStateStorage(ctx context.Context, state string) erro
 		return fmt.Errorf("REST client is not enabled or available")
 	}
 
-	unitUUID, err := c.GetUnitUUID()
-	if err != nil {
-		return fmt.Errorf("failed to get unit UUID: %v", err)
-	}
-
-	err = c.restClient.SetStateStorage(ctx, unitUUID, state)
+	err := c.restClient.SetStateStorage(ctx, state)
 	if err != nil {
 		return err
 	}
@@ -606,12 +541,7 @@ func (c *PepeunitClient) GetStateStorage(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("REST client is not enabled or available")
 	}
 
-	unitUUID, err := c.GetUnitUUID()
-	if err != nil {
-		return "", fmt.Errorf("failed to get unit UUID: %v", err)
-	}
-
-	state, err := c.restClient.GetStateStorage(ctx, unitUUID)
+	state, err := c.restClient.GetStateStorage(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -627,7 +557,7 @@ func (c *PepeunitClient) PerformUpdate(ctx context.Context) error {
 	}
 
 	tempDir := os.TempDir()
-	unitUUID, err := c.GetUnitUUID()
+	unitUUID, err := c.settings.UnitUUID()
 	if err != nil {
 		return fmt.Errorf("failed to get unit UUID: %v", err)
 	}

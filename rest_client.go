@@ -31,8 +31,12 @@ func NewPepeunitRESTClient(settings *Settings) *PepeunitRESTClient {
 }
 
 // DownloadUpdate downloads firmware update archive
-func (c *PepeunitRESTClient) DownloadUpdate(ctx context.Context, unitUUID, filePath string) error {
-	url := c.GetBaseURL() + "/units/firmware/tgz/" + unitUUID + "?wbits=9&level=9"
+func (c *PepeunitRESTClient) DownloadUpdate(ctx context.Context, filePath string) error {
+	uuid, err := c.Settings.UnitUUID()
+	if err != nil {
+		return fmt.Errorf("failed to get unit UUID: %v", err)
+	}
+	url := c.GetBaseURL() + "/units/firmware/tgz/" + uuid + "?wbits=9&level=9"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -74,14 +78,22 @@ func (c *PepeunitRESTClient) DownloadUpdate(ctx context.Context, unitUUID, fileP
 }
 
 // DownloadEnv downloads environment configuration
-func (c *PepeunitRESTClient) DownloadEnv(ctx context.Context, unitUUID, filePath string) error {
-	url := c.GetBaseURL() + "/units/env/" + unitUUID
+func (c *PepeunitRESTClient) DownloadEnv(ctx context.Context, filePath string) error {
+	uuid, err := c.Settings.UnitUUID()
+	if err != nil {
+		return fmt.Errorf("failed to get unit UUID: %v", err)
+	}
+	url := c.GetBaseURL() + "/units/env/" + uuid
 	return c.downloadJSONFile(ctx, url, filePath)
 }
 
 // DownloadSchema downloads topic schema configuration
-func (c *PepeunitRESTClient) DownloadSchema(ctx context.Context, unitUUID, filePath string) error {
-	url := c.GetBaseURL() + "/units/get_current_schema/" + unitUUID
+func (c *PepeunitRESTClient) DownloadSchema(ctx context.Context, filePath string) error {
+	uuid, err := c.Settings.UnitUUID()
+	if err != nil {
+		return fmt.Errorf("failed to get unit UUID: %v", err)
+	}
+	url := c.GetBaseURL() + "/units/get_current_schema/" + uuid
 	return c.downloadJSONFile(ctx, url, filePath)
 }
 
@@ -118,8 +130,12 @@ func (c *PepeunitRESTClient) DownloadFileFromURL(ctx context.Context, url, fileP
 }
 
 // SetStateStorage stores state data in PepeUnit storage
-func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID string, state string) error {
-	url := c.GetBaseURL() + "/units/set_state_storage/" + unitUUID
+func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, state string) error {
+	uuid, err := c.Settings.UnitUUID()
+	if err != nil {
+		return fmt.Errorf("failed to get unit UUID: %v", err)
+	}
+	url := c.GetBaseURL() + "/units/set_state_storage/" + uuid
 
 	payload := map[string]interface{}{"state": state}
 	jsonData, err := json.Marshal(payload)
@@ -154,8 +170,12 @@ func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, unitUUID strin
 }
 
 // GetStateStorage retrieves state data from PepeUnit storage
-func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context, unitUUID string) (string, error) {
-	url := c.GetBaseURL() + "/units/get_state_storage/" + unitUUID
+func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context) (string, error) {
+	uuid, err := c.Settings.UnitUUID()
+	if err != nil {
+		return "", fmt.Errorf("failed to get unit UUID: %v", err)
+	}
+	url := c.GetBaseURL() + "/units/get_state_storage/" + uuid
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

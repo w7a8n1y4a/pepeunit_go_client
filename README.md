@@ -217,6 +217,7 @@ client, err := pepeunit.NewPepeunitClient(pepeunit.PepeunitClientConfig{
     EnableREST:     true,
     CycleSpeed:     100 * time.Millisecond,
     RestartMode:    pepeunit.RestartModeRestartExec,
+    SkipVersionCheck: false, // optional
 })
 ```
 
@@ -226,6 +227,7 @@ Properties/methods (selected):
 - `SetCycleSpeed(speed time.Duration) error`: Set main loop cadence
 - `GetSystemState() map[string]interface{}`: System status (memory, CPU, version)
 - `UpdateDeviceProgram(ctx, archivePath string) error`: Apply update from tar.gz
+- `UpdateBinaryFromURL(ctx context.Context, firmwareURL string) error`: Replace running binary
 - `RunMainCycle(ctx, outputHandler func(*PepeunitClient))`: Start main loop
 - `StopMainCycle()`: Stop loop
 - `SetOutputHandler(handler func(*PepeunitClient))`
@@ -287,6 +289,17 @@ Implements `RESTClient` interface:
 - `SetStateStorage(ctx context.Context, state string) error`
 - `GetStateStorage(ctx context.Context) (string, error)`
 
+Dependency injection (optional):
+
+```go
+customClient, _ := pepeunit.NewPepeunitClient(pepeunit.PepeunitClientConfig{
+    EnvFilePath: "env.json", SchemaFilePath: "schema.json", LogFilePath: "log.json",
+    EnableMQTT: true, EnableREST: true,
+    MQTTClient: myMQTTImpl,    // implements pepeunit.MQTTClient
+    RESTClient: myRESTImpl,    // implements pepeunit.RESTClient
+})
+```
+
 #### Settings
 
 Environment-backed configuration loaded from `env.json`:
@@ -294,7 +307,7 @@ Environment-backed configuration loaded from `env.json`:
 - `PEPEUNIT_URL`, `PEPEUNIT_APP_PREFIX`, `PEPEUNIT_API_ACTUAL_PREFIX`, `HTTP_TYPE`
 - `MQTT_URL`, `MQTT_PORT`, `PEPEUNIT_TOKEN`
 - `SYNC_ENCRYPT_KEY`, `SECRET_KEY`, `COMMIT_VERSION`
-- `PING_INTERVAL`, `STATE_SEND_INTERVAL`, `MINIMAL_LOG_LEVEL`
+- `PING_INTERVAL`, `STATE_SEND_INTERVAL`, `MINIMAL_LOG_LEVEL`, `MIN_LOG_LEVEL`
 - `MAX_LOG_LENGTH`
 
 Helpers:

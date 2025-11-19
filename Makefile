@@ -13,3 +13,4 @@ install:
 clean:
 	@echo "Clean cache package and data_pipe binary..."
 	go clean -modcache
+c

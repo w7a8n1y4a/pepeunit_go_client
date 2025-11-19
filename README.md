@@ -1,4 +1,8 @@
-## PepeUnit Go Client
+## Client Framework for Pepeunit
+
+<div align="center">
+    <img align="center" src="https://pepeunit.com/pepeunit-og.jpg"  width="640" height="320">
+</div>
 
 A cross-platform Go library for integrating with the PepeUnit IoT platform. This client mirrors the Python implementation, providing MQTT and REST functionality for device communications, configuration updates, and state management. The only public entry point is `PepeunitClient`.
 

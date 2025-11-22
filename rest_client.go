@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -205,6 +206,117 @@ func (c *PepeunitRESTClient) GetStateStorage(ctx context.Context) (string, error
 	}
 
 	return string(body), nil
+}
+
+// GetInputByOutput queries input unit nodes by output topic URL
+func (c *PepeunitRESTClient) GetInputByOutput(ctx context.Context, topic string, limit, offset int) (map[string]interface{}, error) {
+	parts := strings.Split(topic, "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid topic URL format: '%s'", topic)
+	}
+	outputUUID := parts[1]
+
+	baseURL := c.GetBaseURL() + "/unit_nodes"
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse base URL: %v", err)
+	}
+
+	q := u.Query()
+	q.Set("order_by_create_date", "desc")
+	q.Set("output_uuid", outputUUID)
+	q.Set("limit", fmt.Sprintf("%d", limit))
+	q.Set("offset", fmt.Sprintf("%d", offset))
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	headers := c.GetAuthHeaders()
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON response: %v", err)
+	}
+	return result, nil
+}
+
+// GetUnitsByNodes queries units by unit node UUIDs
+func (c *PepeunitRESTClient) GetUnitsByNodes(ctx context.Context, unitNodeUUIDs []string, limit, offset int) (map[string]interface{}, error) {
+	if len(unitNodeUUIDs) == 0 {
+		return map[string]interface{}{"count": 0, "units": []interface{}{}}, nil
+	}
+
+	baseURL := c.GetBaseURL() + "/units"
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse base URL: %v", err)
+	}
+
+	q := u.Query()
+	q.Set("is_include_output_unit_nodes", "true")
+	q.Set("order_by_unit_name", "asc")
+	q.Set("order_by_create_date", "desc")
+	q.Set("order_by_last_update", "desc")
+	q.Set("limit", fmt.Sprintf("%d", limit))
+	q.Set("offset", fmt.Sprintf("%d", offset))
+	for _, uuid := range unitNodeUUIDs {
+		q.Add("unit_node_uuids", uuid)
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	headers := c.GetAuthHeaders()
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON response: %v", err)
+	}
+	return result, nil
 }
 
 // downloadFile downloads a file from the given URL to the specified file path

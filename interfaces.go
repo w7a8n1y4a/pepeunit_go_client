@@ -50,6 +50,12 @@ type RESTClient interface {
 
 	// GetStateStorage retrieves state data from PepeUnit storage
 	GetStateStorage(ctx context.Context) (string, error)
+
+	// GetInputByOutput queries input unit nodes by output topic URL
+	GetInputByOutput(ctx context.Context, topic string, limit, offset int) (map[string]interface{}, error)
+
+	// GetUnitsByNodes queries units by unit node UUIDs
+	GetUnitsByNodes(ctx context.Context, unitNodeUUIDs []string, limit, offset int) (map[string]interface{}, error)
 }
 
 // AbstractMQTTClient is an abstract base for MQTT clients

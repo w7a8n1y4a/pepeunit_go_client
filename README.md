@@ -96,10 +96,10 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 func handleOutputMessages(client *pepeunit.PepeunitClient) {
 	currentTime := time.Now()
 
-	// Send data every DELAY_PUB_MSG from extras (fallback to STATE_SEND_INTERVAL)
+	// Send data every DELAY_PUB_MSG from extras (fallback to PU_STATE_SEND_INTERVAL)
 	delay, ok := client.GetSettings().GetInt("DELAY_PUB_MSG")
 	if !ok || delay <= 0 {
-		delay = client.GetSettings().STATE_SEND_INTERVAL
+		delay = client.GetSettings().PU_STATE_SEND_INTERVAL
 	}
 	if currentTime.Sub(lastOutputSendTime) >= time.Duration(delay)*time.Second {
 		message := inc
@@ -313,11 +313,10 @@ customClient, _ := pepeunit.NewPepeunitClient(pepeunit.PepeunitClientConfig{
 
 Environment-backed configuration loaded from `env.json`:
 
-- `PEPEUNIT_URL`, `PEPEUNIT_APP_PREFIX`, `PEPEUNIT_API_ACTUAL_PREFIX`, `HTTP_TYPE`
-- `MQTT_URL`, `MQTT_PORT`, `PEPEUNIT_TOKEN`
-- `SYNC_ENCRYPT_KEY`, `SECRET_KEY`, `COMMIT_VERSION`
-- `PING_INTERVAL`, `STATE_SEND_INTERVAL`, `MINIMAL_LOG_LEVEL`, `MIN_LOG_LEVEL`
-- `MAX_LOG_LENGTH`
+- `PU_DOMAIN`, `PU_APP_PREFIX`, `PU_API_ACTUAL_PREFIX`, `PU_HTTP_TYPE`
+- `PU_MQTT_HOST`, `PU_MQTT_PORT`, `PU_AUTH_TOKEN`
+- `PU_MQTT_PING_INTERVAL`, `PU_STATE_SEND_INTERVAL`, `MINIMAL_LOG_LEVEL`, `PU_MIN_LOG_LEVEL`
+- `PU_MAX_LOG_LENGTH`
 
 Helpers:
 

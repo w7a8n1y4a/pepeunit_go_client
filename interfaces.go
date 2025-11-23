@@ -90,11 +90,11 @@ func NewAbstractRESTClient(settings *Settings) *AbstractRESTClient {
 func (c *AbstractRESTClient) GetAuthHeaders() map[string]string {
 	return map[string]string{
 		"accept":       "application/json",
-		"x-auth-token": c.Settings.PEPEUNIT_TOKEN,
+		"x-auth-token": c.Settings.PU_AUTH_TOKEN,
 	}
 }
 
 // GetBaseURL returns the base URL for PepeUnit API
 func (c *AbstractRESTClient) GetBaseURL() string {
-	return c.Settings.HTTP_TYPE + "://" + c.Settings.PEPEUNIT_URL + c.Settings.PEPEUNIT_APP_PREFIX + c.Settings.PEPEUNIT_API_ACTUAL_PREFIX
+	return c.Settings.PU_HTTP_TYPE + "://" + c.Settings.PU_DOMAIN + c.Settings.PU_APP_PREFIX + c.Settings.PU_API_ACTUAL_PREFIX
 }

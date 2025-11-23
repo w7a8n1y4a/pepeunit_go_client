@@ -32,25 +32,25 @@ func (c *PepeunitMQTTClient) Connect(ctx context.Context) error {
 	clientID := c.generateUniqueClientID()
 
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", c.Settings.MQTT_URL, c.Settings.MQTT_PORT))
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", c.Settings.PU_MQTT_HOST, c.Settings.PU_MQTT_PORT))
 	opts.SetClientID(clientID)
-	opts.SetUsername(c.Settings.PEPEUNIT_TOKEN) // Use PEPEUNIT_TOKEN as username like Python client
-	opts.SetPassword("")                        // Empty password like Python client
+	opts.SetUsername(c.Settings.PU_AUTH_TOKEN) // Use PU_AUTH_TOKEN as username like Python client
+	opts.SetPassword("")                       // Empty password like Python client
 	opts.SetCleanSession(true)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectTimeout(10 * time.Second)
 	opts.SetPingTimeout(10 * time.Second)
-	opts.SetKeepAlive(time.Duration(c.Settings.PING_INTERVAL) * time.Second)
+	opts.SetKeepAlive(time.Duration(c.Settings.PU_MQTT_PING_INTERVAL) * time.Second)
 
 	// Set up TLS if needed
-	if c.Settings.HTTP_TYPE == "https" {
+	if c.Settings.PU_HTTP_TYPE == "https" {
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: false,
 		}
 		opts.SetTLSConfig(tlsConfig)
 		// Update broker URL to use SSL
-		opts.AddBroker(fmt.Sprintf("ssl://%s:%d", c.Settings.MQTT_URL, c.Settings.MQTT_PORT))
+		opts.AddBroker(fmt.Sprintf("ssl://%s:%d", c.Settings.PU_MQTT_HOST, c.Settings.PU_MQTT_PORT))
 	}
 
 	// Set connection lost handler

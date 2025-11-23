@@ -130,10 +130,10 @@ func handleInputMessages(client *pepeunit.PepeunitClient, msg pepeunit.MQTTMessa
 func handleOutputMessages(client *pepeunit.PepeunitClient) {
 	currentTime := time.Now()
 
-	// Send data every DELAY_PUB_MSG from extras (fallback to STATE_SEND_INTERVAL)
+	// Send data every DELAY_PUB_MSG from extras (fallback to PU_STATE_SEND_INTERVAL)
 	delay, ok := client.GetSettings().GetInt("DELAY_PUB_MSG")
 	if !ok || delay <= 0 {
-		delay = client.GetSettings().STATE_SEND_INTERVAL
+		delay = client.GetSettings().PU_STATE_SEND_INTERVAL
 	}
 	if currentTime.Sub(lastOutputSendTime) >= time.Duration(delay)*time.Second {
 		message := inc

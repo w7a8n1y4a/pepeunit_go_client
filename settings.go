@@ -10,43 +10,41 @@ import (
 
 // Settings manages configuration settings
 type Settings struct {
-	EnvFilePath                string
-	PEPEUNIT_URL               string
-	PEPEUNIT_APP_PREFIX        string
-	PEPEUNIT_API_ACTUAL_PREFIX string
-	HTTP_TYPE                  string
-	MQTT_URL                   string
-	MQTT_PORT                  int
-	PEPEUNIT_TOKEN             string
-	SYNC_ENCRYPT_KEY           string
-	SECRET_KEY                 string
-	COMMIT_VERSION             string
-	PING_INTERVAL              int
-	STATE_SEND_INTERVAL        int
-	MIN_LOG_LEVEL              string
-	MAX_LOG_LENGTH             int
-	extras                     map[string]interface{}
+	EnvFilePath            string
+	PU_DOMAIN              string
+	PU_APP_PREFIX          string
+	PU_API_ACTUAL_PREFIX   string
+	PU_HTTP_TYPE           string
+	PU_MQTT_HOST           string
+	PU_MQTT_PORT           int
+	PU_AUTH_TOKEN          string
+	PU_SECRET_KEY          string
+	PU_COMMIT_VERSION      string
+	PU_MQTT_PING_INTERVAL  int
+	PU_STATE_SEND_INTERVAL int
+	PU_MIN_LOG_LEVEL       string
+	PU_MAX_LOG_LENGTH      int
+	extras                 map[string]interface{}
 }
 
 // NewSettings creates a new settings instance
 func NewSettings(envFilePath string) *Settings {
 	settings := &Settings{
-		EnvFilePath:                envFilePath,
-		PEPEUNIT_URL:               "",
-		PEPEUNIT_APP_PREFIX:        "",
-		PEPEUNIT_API_ACTUAL_PREFIX: "",
-		HTTP_TYPE:                  "https",
-		MQTT_URL:                   "",
-		MQTT_PORT:                  1883,
-		PEPEUNIT_TOKEN:             "",
-		SYNC_ENCRYPT_KEY:           "",
-		SECRET_KEY:                 "",
-		COMMIT_VERSION:             "",
-		PING_INTERVAL:              30,
-		STATE_SEND_INTERVAL:        300,
-		MIN_LOG_LEVEL:              "Debug",
-		MAX_LOG_LENGTH:             64,
-		extras:                     map[string]interface{}{},
+		EnvFilePath:            envFilePath,
+		PU_DOMAIN:              "",
+		PU_APP_PREFIX:          "",
+		PU_API_ACTUAL_PREFIX:   "",
+		PU_HTTP_TYPE:           "https",
+		PU_MQTT_HOST:           "",
+		PU_MQTT_PORT:           1883,
+		PU_AUTH_TOKEN:          "",
+		PU_SECRET_KEY:          "",
+		PU_COMMIT_VERSION:      "",
+		PU_MQTT_PING_INTERVAL:  30,
+		PU_STATE_SEND_INTERVAL: 300,
+		PU_MIN_LOG_LEVEL:       "Debug",
+		PU_MAX_LOG_LENGTH:      64,
+		extras:                 map[string]interface{}{},
 	}
 
 	if envFilePath != "" {
@@ -88,36 +86,34 @@ func (s *Settings) LoadFromFile() error {
 func (s *Settings) updateFromMap(data map[string]interface{}) error {
 	for key, value := range data {
 		switch key {
-		case "PEPEUNIT_URL":
-			s.PEPEUNIT_URL = toString(value)
-		case "PEPEUNIT_APP_PREFIX":
-			s.PEPEUNIT_APP_PREFIX = toString(value)
-		case "PEPEUNIT_API_ACTUAL_PREFIX":
-			s.PEPEUNIT_API_ACTUAL_PREFIX = toString(value)
-		case "HTTP_TYPE":
-			s.HTTP_TYPE = toString(value)
-		case "MQTT_URL":
-			s.MQTT_URL = toString(value)
-		case "MQTT_PORT":
-			s.MQTT_PORT = toInt(value)
-		case "PEPEUNIT_TOKEN":
-			s.PEPEUNIT_TOKEN = toString(value)
-		case "SYNC_ENCRYPT_KEY":
-			s.SYNC_ENCRYPT_KEY = toString(value)
-		case "SECRET_KEY":
-			s.SECRET_KEY = toString(value)
-		case "COMMIT_VERSION":
-			s.COMMIT_VERSION = toString(value)
-		case "PING_INTERVAL":
-			s.PING_INTERVAL = toInt(value)
-		case "STATE_SEND_INTERVAL":
-			s.STATE_SEND_INTERVAL = toInt(value)
-		case "MIN_LOG_LEVEL":
-			s.MIN_LOG_LEVEL = toString(value)
+		case "PU_DOMAIN":
+			s.PU_DOMAIN = toString(value)
+		case "PU_APP_PREFIX":
+			s.PU_APP_PREFIX = toString(value)
+		case "PU_API_ACTUAL_PREFIX":
+			s.PU_API_ACTUAL_PREFIX = toString(value)
+		case "PU_HTTP_TYPE":
+			s.PU_HTTP_TYPE = toString(value)
+		case "PU_MQTT_HOST":
+			s.PU_MQTT_HOST = toString(value)
+		case "PU_MQTT_PORT":
+			s.PU_MQTT_PORT = toInt(value)
+		case "PU_AUTH_TOKEN":
+			s.PU_AUTH_TOKEN = toString(value)
+		case "PU_SECRET_KEY":
+			s.PU_SECRET_KEY = toString(value)
+		case "PU_COMMIT_VERSION":
+			s.PU_COMMIT_VERSION = toString(value)
+		case "PU_MQTT_PING_INTERVAL":
+			s.PU_MQTT_PING_INTERVAL = toInt(value)
+		case "PU_STATE_SEND_INTERVAL":
+			s.PU_STATE_SEND_INTERVAL = toInt(value)
+		case "PU_MIN_LOG_LEVEL":
+			s.PU_MIN_LOG_LEVEL = toString(value)
 		case "MINIMAL_LOG_LEVEL":
-			s.MIN_LOG_LEVEL = toString(value)
-		case "MAX_LOG_LENGTH":
-			s.MAX_LOG_LENGTH = toInt(value)
+			s.PU_MIN_LOG_LEVEL = toString(value)
+		case "PU_MAX_LOG_LENGTH":
+			s.PU_MAX_LOG_LENGTH = toInt(value)
 		default:
 			if s.extras == nil {
 				s.extras = map[string]interface{}{}
@@ -164,36 +160,34 @@ func (s *Settings) Update(updates map[string]interface{}) error {
 
 func (s *Settings) Set(key string, value interface{}) {
 	switch key {
-	case "PEPEUNIT_URL":
-		s.PEPEUNIT_URL = toString(value)
-	case "PEPEUNIT_APP_PREFIX":
-		s.PEPEUNIT_APP_PREFIX = toString(value)
-	case "PEPEUNIT_API_ACTUAL_PREFIX":
-		s.PEPEUNIT_API_ACTUAL_PREFIX = toString(value)
-	case "HTTP_TYPE":
-		s.HTTP_TYPE = toString(value)
-	case "MQTT_URL":
-		s.MQTT_URL = toString(value)
-	case "MQTT_PORT":
-		s.MQTT_PORT = toInt(value)
-	case "PEPEUNIT_TOKEN":
-		s.PEPEUNIT_TOKEN = toString(value)
-	case "SYNC_ENCRYPT_KEY":
-		s.SYNC_ENCRYPT_KEY = toString(value)
-	case "SECRET_KEY":
-		s.SECRET_KEY = toString(value)
-	case "COMMIT_VERSION":
-		s.COMMIT_VERSION = toString(value)
-	case "PING_INTERVAL":
-		s.PING_INTERVAL = toInt(value)
-	case "STATE_SEND_INTERVAL":
-		s.STATE_SEND_INTERVAL = toInt(value)
-	case "MIN_LOG_LEVEL":
-		s.MIN_LOG_LEVEL = toString(value)
+	case "PU_DOMAIN":
+		s.PU_DOMAIN = toString(value)
+	case "PU_APP_PREFIX":
+		s.PU_APP_PREFIX = toString(value)
+	case "PU_API_ACTUAL_PREFIX":
+		s.PU_API_ACTUAL_PREFIX = toString(value)
+	case "PU_HTTP_TYPE":
+		s.PU_HTTP_TYPE = toString(value)
+	case "PU_MQTT_HOST":
+		s.PU_MQTT_HOST = toString(value)
+	case "PU_MQTT_PORT":
+		s.PU_MQTT_PORT = toInt(value)
+	case "PU_AUTH_TOKEN":
+		s.PU_AUTH_TOKEN = toString(value)
+	case "PU_SECRET_KEY":
+		s.PU_SECRET_KEY = toString(value)
+	case "PU_COMMIT_VERSION":
+		s.PU_COMMIT_VERSION = toString(value)
+	case "PU_MQTT_PING_INTERVAL":
+		s.PU_MQTT_PING_INTERVAL = toInt(value)
+	case "PU_STATE_SEND_INTERVAL":
+		s.PU_STATE_SEND_INTERVAL = toInt(value)
+	case "PU_MIN_LOG_LEVEL":
+		s.PU_MIN_LOG_LEVEL = toString(value)
 	case "MINIMAL_LOG_LEVEL":
-		s.MIN_LOG_LEVEL = toString(value)
-	case "MAX_LOG_LENGTH":
-		s.MAX_LOG_LENGTH = toInt(value)
+		s.PU_MIN_LOG_LEVEL = toString(value)
+	case "PU_MAX_LOG_LENGTH":
+		s.PU_MAX_LOG_LENGTH = toInt(value)
 	default:
 		if s.extras == nil {
 			s.extras = map[string]interface{}{}
@@ -204,34 +198,32 @@ func (s *Settings) Set(key string, value interface{}) {
 
 func (s *Settings) Get(key string) (interface{}, bool) {
 	switch key {
-	case "PEPEUNIT_URL":
-		return s.PEPEUNIT_URL, true
-	case "PEPEUNIT_APP_PREFIX":
-		return s.PEPEUNIT_APP_PREFIX, true
-	case "PEPEUNIT_API_ACTUAL_PREFIX":
-		return s.PEPEUNIT_API_ACTUAL_PREFIX, true
-	case "HTTP_TYPE":
-		return s.HTTP_TYPE, true
-	case "MQTT_URL":
-		return s.MQTT_URL, true
-	case "MQTT_PORT":
-		return s.MQTT_PORT, true
-	case "PEPEUNIT_TOKEN":
-		return s.PEPEUNIT_TOKEN, true
-	case "SYNC_ENCRYPT_KEY":
-		return s.SYNC_ENCRYPT_KEY, true
-	case "SECRET_KEY":
-		return s.SECRET_KEY, true
-	case "COMMIT_VERSION":
-		return s.COMMIT_VERSION, true
-	case "PING_INTERVAL":
-		return s.PING_INTERVAL, true
-	case "STATE_SEND_INTERVAL":
-		return s.STATE_SEND_INTERVAL, true
-	case "MIN_LOG_LEVEL":
-		return s.MIN_LOG_LEVEL, true
-	case "MAX_LOG_LENGTH":
-		return s.MAX_LOG_LENGTH, true
+	case "PU_DOMAIN":
+		return s.PU_DOMAIN, true
+	case "PU_APP_PREFIX":
+		return s.PU_APP_PREFIX, true
+	case "PU_API_ACTUAL_PREFIX":
+		return s.PU_API_ACTUAL_PREFIX, true
+	case "PU_HTTP_TYPE":
+		return s.PU_HTTP_TYPE, true
+	case "PU_MQTT_HOST":
+		return s.PU_MQTT_HOST, true
+	case "PU_MQTT_PORT":
+		return s.PU_MQTT_PORT, true
+	case "PU_AUTH_TOKEN":
+		return s.PU_AUTH_TOKEN, true
+	case "PU_SECRET_KEY":
+		return s.PU_SECRET_KEY, true
+	case "PU_COMMIT_VERSION":
+		return s.PU_COMMIT_VERSION, true
+	case "PU_MQTT_PING_INTERVAL":
+		return s.PU_MQTT_PING_INTERVAL, true
+	case "PU_STATE_SEND_INTERVAL":
+		return s.PU_STATE_SEND_INTERVAL, true
+	case "PU_MIN_LOG_LEVEL":
+		return s.PU_MIN_LOG_LEVEL, true
+	case "PU_MAX_LOG_LENGTH":
+		return s.PU_MAX_LOG_LENGTH, true
 	default:
 		if s.extras == nil {
 			return nil, false
@@ -264,20 +256,19 @@ func (s *Settings) Has(key string) bool {
 
 func (s *Settings) All() map[string]interface{} {
 	result := map[string]interface{}{
-		"PEPEUNIT_URL":               s.PEPEUNIT_URL,
-		"PEPEUNIT_APP_PREFIX":        s.PEPEUNIT_APP_PREFIX,
-		"PEPEUNIT_API_ACTUAL_PREFIX": s.PEPEUNIT_API_ACTUAL_PREFIX,
-		"HTTP_TYPE":                  s.HTTP_TYPE,
-		"MQTT_URL":                   s.MQTT_URL,
-		"MQTT_PORT":                  s.MQTT_PORT,
-		"PEPEUNIT_TOKEN":             s.PEPEUNIT_TOKEN,
-		"SYNC_ENCRYPT_KEY":           s.SYNC_ENCRYPT_KEY,
-		"SECRET_KEY":                 s.SECRET_KEY,
-		"COMMIT_VERSION":             s.COMMIT_VERSION,
-		"PING_INTERVAL":              s.PING_INTERVAL,
-		"STATE_SEND_INTERVAL":        s.STATE_SEND_INTERVAL,
-		"MIN_LOG_LEVEL":              s.MIN_LOG_LEVEL,
-		"MAX_LOG_LENGTH":             s.MAX_LOG_LENGTH,
+		"PU_DOMAIN":              s.PU_DOMAIN,
+		"PU_APP_PREFIX":          s.PU_APP_PREFIX,
+		"PU_API_ACTUAL_PREFIX":   s.PU_API_ACTUAL_PREFIX,
+		"PU_HTTP_TYPE":           s.PU_HTTP_TYPE,
+		"PU_MQTT_HOST":           s.PU_MQTT_HOST,
+		"PU_MQTT_PORT":           s.PU_MQTT_PORT,
+		"PU_AUTH_TOKEN":          s.PU_AUTH_TOKEN,
+		"PU_SECRET_KEY":          s.PU_SECRET_KEY,
+		"PU_COMMIT_VERSION":      s.PU_COMMIT_VERSION,
+		"PU_MQTT_PING_INTERVAL":  s.PU_MQTT_PING_INTERVAL,
+		"PU_STATE_SEND_INTERVAL": s.PU_STATE_SEND_INTERVAL,
+		"PU_MIN_LOG_LEVEL":       s.PU_MIN_LOG_LEVEL,
+		"PU_MAX_LOG_LENGTH":      s.PU_MAX_LOG_LENGTH,
 	}
 	for k, v := range s.extras {
 		result[k] = v
@@ -311,7 +302,7 @@ func toInt(value interface{}) int {
 
 // UnitUUID extracts the unit UUID from the JWT token in settings
 func (s *Settings) UnitUUID() (string, error) {
-	tokenParts := strings.Split(s.PEPEUNIT_TOKEN, ".")
+	tokenParts := strings.Split(s.PU_AUTH_TOKEN, ".")
 	if len(tokenParts) != 3 {
 		return "", fmt.Errorf("invalid JWT token format")
 	}

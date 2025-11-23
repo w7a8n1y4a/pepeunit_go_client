@@ -188,7 +188,6 @@ func (c *PepeunitClient) UpdateDeviceProgram(ctx context.Context, archivePath st
 		os.Exit(0)
 	case RestartModeRestartExec:
 		c.StopMainCycle()
-		c.logger.Info("I`ll Be Back - replacing current process")
 		executable, err := os.Executable()
 		if err != nil {
 			c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
@@ -231,11 +230,11 @@ func (c *PepeunitClient) updateEnvSchemaOnly(ctx context.Context) error {
 // GetSystemState returns current system status information
 func (c *PepeunitClient) GetSystemState() map[string]interface{} {
 	state := map[string]interface{}{
-		"millis":         time.Now().UnixMilli(),
-		"mem_free":       0,
-		"mem_alloc":      0,
-		"freq":           0,
-		"commit_version": c.settings.COMMIT_VERSION,
+		"millis":            time.Now().UnixMilli(),
+		"mem_free":          0,
+		"mem_alloc":         0,
+		"freq":              0,
+		"pu_commit_version": c.settings.PU_COMMIT_VERSION,
 	}
 
 	// Get memory information
@@ -321,8 +320,8 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 	}
 
 	if !c.skipVersionCheck {
-		if newVer, ok := meta["NEW_COMMIT_VERSION"].(string); ok && newVer != "" {
-			if c.settings.COMMIT_VERSION == newVer {
+		if newVer, ok := meta["PU_COMMIT_VERSION"].(string); ok && newVer != "" {
+			if c.settings.PU_COMMIT_VERSION == newVer {
 				c.logger.Info("No update needed: current version = target version")
 				return
 			}
@@ -362,6 +361,7 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 				}
 				os.Exit(0)
 			case RestartModeRestartExec:
+				c.logger.Info("I`ll Be Back - replacing current process")
 				c.StopMainCycle()
 				executable, err := os.Executable()
 				if err != nil {
@@ -679,7 +679,7 @@ func (c *PepeunitClient) baseMQTTOutputHandler(ctx context.Context) {
 	outputBaseTopic := c.schema.GetOutputBaseTopic()
 	if topics, ok := outputBaseTopic[string(BaseOutputTopicTypeStatePepeunit)]; ok && len(topics) > 0 {
 		c.mutex.RLock()
-		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.STATE_SEND_INTERVAL)*time.Second
+		shouldSend := currentTime.Sub(c.lastStateSend) >= time.Duration(c.settings.PU_STATE_SEND_INTERVAL)*time.Second
 		c.mutex.RUnlock()
 
 		if shouldSend {
@@ -757,7 +757,7 @@ func (c *PepeunitClient) SetCustomUpdateHandler(handler func(*PepeunitClient, st
 
 // StopMainCycle stops the main application loop
 func (c *PepeunitClient) StopMainCycle() {
-	c.logger.Info("Main cycle stopped")
+	c.logger.Info("Run Stop Main cycle")
 	c.mutex.Lock()
 	c.running = false
 	c.mutex.Unlock()

@@ -127,7 +127,7 @@ func (l *Logger) log(level LogLevel, message string, fileOnly bool) {
 	}
 
 	if l.logFilePath != "" {
-		_ = l.fileManager.AppendNDJSONWithLimit(l.logFilePath, logEntry, l.settings.MAX_LOG_LENGTH)
+		_ = l.fileManager.AppendNDJSONWithLimit(l.logFilePath, logEntry, l.settings.PU_MAX_LOG_LENGTH)
 	}
 
 	entry := LogEntry{
@@ -147,7 +147,7 @@ func (l *Logger) log(level LogLevel, message string, fileOnly bool) {
 
 // shouldPublishToMQTT checks if the log level should be published to MQTT
 func (l *Logger) shouldPublishToMQTT(level LogLevel) bool {
-	minLevel := LogLevel(l.settings.MIN_LOG_LEVEL)
+	minLevel := LogLevel(l.settings.PU_MIN_LOG_LEVEL)
 	return level.GetIntLevel() >= minLevel.GetIntLevel()
 }
 

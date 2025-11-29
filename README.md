@@ -322,6 +322,15 @@ Main client for interacting with the PepeUnit platform.
 | `All()` | Returns all settings including extras. |
 | `UnitUUID()` | Extracts unit UUID from JWT in `PU_AUTH_TOKEN`. |
 
+### Cipher (AES-GCM)
+
+The keyB64 can be 16, 24, or 32 bits long.
+
+| Method | Description |
+|--------|-------------|
+| `AESGCMEncode(data, keyB64)` | Encrypts UTF-8 `data` using AES-GCM with 12-byte random nonce. Returns `base64(nonce).base64(ciphertext)` joined by `.`. `keyB64` must decode to 16/24/32 bytes. |
+| `AESGCMDecode(encoded, keyB64)` | Decrypts `encoded` string in format `base64(nonce).base64(ciphertext)` using AES-GCM and returns UTF-8 plaintext. |
+
 ### Logger
 
 | Method | Description |

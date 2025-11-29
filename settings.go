@@ -19,6 +19,7 @@ type Settings struct {
 	PU_MQTT_PORT           int
 	PU_AUTH_TOKEN          string
 	PU_SECRET_KEY          string
+	PU_ENCRYPT_KEY         string
 	PU_COMMIT_VERSION      string
 	PU_MQTT_PING_INTERVAL  int
 	PU_STATE_SEND_INTERVAL int
@@ -39,6 +40,7 @@ func NewSettings(envFilePath string) *Settings {
 		PU_MQTT_PORT:           1883,
 		PU_AUTH_TOKEN:          "",
 		PU_SECRET_KEY:          "",
+		PU_ENCRYPT_KEY:         "",
 		PU_COMMIT_VERSION:      "",
 		PU_MQTT_PING_INTERVAL:  30,
 		PU_STATE_SEND_INTERVAL: 300,
@@ -102,6 +104,8 @@ func (s *Settings) updateFromMap(data map[string]interface{}) error {
 			s.PU_AUTH_TOKEN = toString(value)
 		case "PU_SECRET_KEY":
 			s.PU_SECRET_KEY = toString(value)
+		case "PU_ENCRYPT_KEY":
+			s.PU_ENCRYPT_KEY = toString(value)
 		case "PU_COMMIT_VERSION":
 			s.PU_COMMIT_VERSION = toString(value)
 		case "PU_MQTT_PING_INTERVAL":
@@ -176,6 +180,8 @@ func (s *Settings) Set(key string, value interface{}) {
 		s.PU_AUTH_TOKEN = toString(value)
 	case "PU_SECRET_KEY":
 		s.PU_SECRET_KEY = toString(value)
+	case "PU_ENCRYPT_KEY":
+		s.PU_ENCRYPT_KEY = toString(value)
 	case "PU_COMMIT_VERSION":
 		s.PU_COMMIT_VERSION = toString(value)
 	case "PU_MQTT_PING_INTERVAL":
@@ -214,6 +220,8 @@ func (s *Settings) Get(key string) (interface{}, bool) {
 		return s.PU_AUTH_TOKEN, true
 	case "PU_SECRET_KEY":
 		return s.PU_SECRET_KEY, true
+	case "PU_ENCRYPT_KEY":
+		return s.PU_ENCRYPT_KEY, true
 	case "PU_COMMIT_VERSION":
 		return s.PU_COMMIT_VERSION, true
 	case "PU_MQTT_PING_INTERVAL":
@@ -264,6 +272,7 @@ func (s *Settings) All() map[string]interface{} {
 		"PU_MQTT_PORT":           s.PU_MQTT_PORT,
 		"PU_AUTH_TOKEN":          s.PU_AUTH_TOKEN,
 		"PU_SECRET_KEY":          s.PU_SECRET_KEY,
+		"PU_ENCRYPT_KEY":         s.PU_ENCRYPT_KEY,
 		"PU_COMMIT_VERSION":      s.PU_COMMIT_VERSION,
 		"PU_MQTT_PING_INTERVAL":  s.PU_MQTT_PING_INTERVAL,
 		"PU_STATE_SEND_INTERVAL": s.PU_STATE_SEND_INTERVAL,

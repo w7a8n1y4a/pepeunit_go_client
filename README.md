@@ -198,7 +198,7 @@ func main() {
 		EnableREST:       true,
 		CycleSpeed:       1 * time.Second, // 1 second cycle
 		RestartMode:      pepeunit.RestartModeRestartExec,
-		SkipVersionCheck: true,
+		FFVersionCheckEnable: true,
 	})
 
 	if err != nil {

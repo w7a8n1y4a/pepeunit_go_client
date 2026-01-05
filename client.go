@@ -25,7 +25,7 @@ type PepeunitClient struct {
 	enableREST          bool
 	cycleSpeed          time.Duration
 	restartMode         RestartMode
-	skipVersionCheck    bool
+	ffVersionCheckEnable bool
 	settings            *Settings
 	schema              *SchemaManager
 	logger              *Logger
@@ -49,7 +49,7 @@ type PepeunitClientConfig struct {
 	EnableREST       bool
 	CycleSpeed       time.Duration
 	RestartMode      RestartMode
-	SkipVersionCheck bool
+	FFVersionCheckEnable bool
 	MQTTClient       MQTTClient
 	RESTClient       RESTClient
 }
@@ -92,7 +92,7 @@ func NewPepeunitClient(config PepeunitClientConfig) (*PepeunitClient, error) {
 		enableREST:       config.EnableREST,
 		cycleSpeed:       config.CycleSpeed,
 		restartMode:      config.RestartMode,
-		skipVersionCheck: config.SkipVersionCheck,
+		ffVersionCheckEnable: config.FFVersionCheckEnable,
 		settings:         settings,
 		schema:           schema,
 		logger:           logger,
@@ -319,7 +319,7 @@ func (c *PepeunitClient) handleUpdate(ctx context.Context, payload string) {
 		return
 	}
 
-	if !c.skipVersionCheck {
+	if c.ffVersionCheckEnable {
 		if newVer, ok := meta["PU_COMMIT_VERSION"].(string); ok && newVer != "" {
 			if c.settings.PU_COMMIT_VERSION == newVer {
 				c.logger.Info("No update needed: current version = target version")

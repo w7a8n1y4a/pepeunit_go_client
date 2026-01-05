@@ -2,10 +2,12 @@ package pepeunit
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,13 +23,29 @@ type PepeunitRESTClient struct {
 
 // NewPepeunitRESTClient creates a new REST client
 func NewPepeunitRESTClient(settings *Settings) *PepeunitRESTClient {
-	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
 	return &PepeunitRESTClient{
 		AbstractRESTClient: NewAbstractRESTClient(settings),
-		httpClient:         httpClient,
+		httpClient:         newDefaultHTTPClient(30 * time.Second),
+	}
+}
+
+func newDefaultHTTPClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 0,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          0,
+		IdleConnTimeout:       0,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableKeepAlives:     true,
+	}
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
 	}
 }
 
@@ -144,7 +162,7 @@ func (c *PepeunitRESTClient) SetStateStorage(ctx context.Context, state string) 
 		return fmt.Errorf("failed to marshal state data: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, io.NopCloser(strings.NewReader(string(jsonData))))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}

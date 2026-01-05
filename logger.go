@@ -16,25 +16,27 @@ type LogEntry struct {
 
 // Logger handles logging operations
 type Logger struct {
-	logFilePath  string
-	mqttClient   MQTTClient
-	schema       *SchemaManager
-	settings     *Settings
-	logEntries   []LogEntry
-	mutex        sync.RWMutex
-	isPublishing bool // Flag to prevent recursive MQTT publishing
-	fileManager  *FileManager
+	logFilePath        string
+	mqttClient         MQTTClient
+	schema             *SchemaManager
+	settings           *Settings
+	ffConsoleLogEnable bool
+	logEntries         []LogEntry
+	mutex              sync.RWMutex
+	isPublishing       bool // Flag to prevent recursive MQTT publishing
+	fileManager        *FileManager
 }
 
 // NewLogger creates a new logger instance
-func NewLogger(logFilePath string, mqttClient MQTTClient, schema *SchemaManager, settings *Settings) *Logger {
+func NewLogger(logFilePath string, mqttClient MQTTClient, schema *SchemaManager, settings *Settings, ffConsoleLogEnable bool) *Logger {
 	logger := &Logger{
-		logFilePath: logFilePath,
-		mqttClient:  mqttClient,
-		schema:      schema,
-		settings:    settings,
-		logEntries:  make([]LogEntry, 0),
-		fileManager: NewFileManager(),
+		logFilePath:        logFilePath,
+		mqttClient:         mqttClient,
+		schema:             schema,
+		settings:           settings,
+		ffConsoleLogEnable: ffConsoleLogEnable,
+		logEntries:         make([]LogEntry, 0),
+		fileManager:        NewFileManager(),
 	}
 
 	// Load existing log entries if file exists
@@ -124,6 +126,13 @@ func (l *Logger) log(level LogLevel, message string, fileOnly bool) {
 		"level":           string(level),
 		"text":            message,
 		"create_datetime": timestamp,
+	}
+
+	if l.ffConsoleLogEnable {
+		if b, err := json.Marshal(logEntry); err == nil {
+			b = append(b, '\n')
+			_, _ = os.Stdout.Write(b)
+		}
 	}
 
 	if l.logFilePath != "" {

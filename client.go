@@ -18,40 +18,42 @@ import (
 
 // PepeunitClient is the main client for PepeUnit integration
 type PepeunitClient struct {
-	envFilePath         string
-	schemaFilePath      string
-	logFilePath         string
-	enableMQTT          bool
-	enableREST          bool
-	cycleSpeed          time.Duration
-	restartMode         RestartMode
+	envFilePath          string
+	schemaFilePath       string
+	logFilePath          string
+	enableMQTT           bool
+	enableREST           bool
+	cycleSpeed           time.Duration
+	restartMode          RestartMode
 	ffVersionCheckEnable bool
-	settings            *Settings
-	schema              *SchemaManager
-	logger              *Logger
-	mqttClient          MQTTClient
-	restClient          RESTClient
-	inputHandler        MQTTInputHandler
-	outputHandler       func(*PepeunitClient)
-	customUpdateHandler func(*PepeunitClient, string) error
-	running             bool
-	lastStateSend       time.Time
-	mutex               sync.RWMutex
-	subscribedTopics    map[string]struct{}
+	ffConsoleLogEnable   bool
+	settings             *Settings
+	schema               *SchemaManager
+	logger               *Logger
+	mqttClient           MQTTClient
+	restClient           RESTClient
+	inputHandler         MQTTInputHandler
+	outputHandler        func(*PepeunitClient)
+	customUpdateHandler  func(*PepeunitClient, string) error
+	running              bool
+	lastStateSend        time.Time
+	mutex                sync.RWMutex
+	subscribedTopics     map[string]struct{}
 }
 
 // PepeunitClientConfig holds configuration for creating a PepeunitClient
 type PepeunitClientConfig struct {
-	EnvFilePath      string
-	SchemaFilePath   string
-	LogFilePath      string
-	EnableMQTT       bool
-	EnableREST       bool
-	CycleSpeed       time.Duration
-	RestartMode      RestartMode
+	EnvFilePath          string
+	SchemaFilePath       string
+	LogFilePath          string
+	EnableMQTT           bool
+	EnableREST           bool
+	CycleSpeed           time.Duration
+	RestartMode          RestartMode
 	FFVersionCheckEnable bool
-	MQTTClient       MQTTClient
-	RESTClient       RESTClient
+	FFConsoleLogEnable   bool
+	MQTTClient           MQTTClient
+	RESTClient           RESTClient
 }
 
 // NewPepeunitClient creates a new PepeUnit client
@@ -82,22 +84,23 @@ func NewPepeunitClient(config PepeunitClientConfig) (*PepeunitClient, error) {
 		return nil, fmt.Errorf("failed to create schema manager: %v", err)
 	}
 
-	logger := NewLogger(config.LogFilePath, nil, schema, settings)
+	logger := NewLogger(config.LogFilePath, nil, schema, settings, config.FFConsoleLogEnable)
 
 	client := &PepeunitClient{
-		envFilePath:      config.EnvFilePath,
-		schemaFilePath:   config.SchemaFilePath,
-		logFilePath:      config.LogFilePath,
-		enableMQTT:       config.EnableMQTT,
-		enableREST:       config.EnableREST,
-		cycleSpeed:       config.CycleSpeed,
-		restartMode:      config.RestartMode,
+		envFilePath:          config.EnvFilePath,
+		schemaFilePath:       config.SchemaFilePath,
+		logFilePath:          config.LogFilePath,
+		enableMQTT:           config.EnableMQTT,
+		enableREST:           config.EnableREST,
+		cycleSpeed:           config.CycleSpeed,
+		restartMode:          config.RestartMode,
 		ffVersionCheckEnable: config.FFVersionCheckEnable,
-		settings:         settings,
-		schema:           schema,
-		logger:           logger,
-		running:          false,
-		subscribedTopics: make(map[string]struct{}),
+		ffConsoleLogEnable:   config.FFConsoleLogEnable,
+		settings:             settings,
+		schema:               schema,
+		logger:               logger,
+		running:              false,
+		subscribedTopics:     make(map[string]struct{}),
 	}
 
 	// Initialize MQTT client

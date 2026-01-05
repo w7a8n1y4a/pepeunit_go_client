@@ -200,6 +200,7 @@ func main() {
 		CycleSpeed:           1 * time.Second, // 1 second cycle
 		RestartMode:          pepeunit.RestartModeRestartExec,
 		FFVersionCheckEnable: true,
+		FFConsoleLogEnable:   true,
 	})
 
 	if err != nil {

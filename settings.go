@@ -22,6 +22,7 @@ type Settings struct {
 	PU_ENCRYPT_KEY         string
 	PU_COMMIT_VERSION      string
 	PU_MQTT_PING_INTERVAL  int
+	PU_MQTT_KEEPALIVE      int
 	PU_STATE_SEND_INTERVAL int
 	PU_MIN_LOG_LEVEL       string
 	PU_MAX_LOG_LENGTH      int
@@ -42,7 +43,8 @@ func NewSettings(envFilePath string) *Settings {
 		PU_SECRET_KEY:          "",
 		PU_ENCRYPT_KEY:         "",
 		PU_COMMIT_VERSION:      "",
-		PU_MQTT_PING_INTERVAL:  30,
+		PU_MQTT_PING_INTERVAL:  20,
+		PU_MQTT_KEEPALIVE:      60,
 		PU_STATE_SEND_INTERVAL: 300,
 		PU_MIN_LOG_LEVEL:       "Debug",
 		PU_MAX_LOG_LENGTH:      64,
@@ -110,6 +112,8 @@ func (s *Settings) updateFromMap(data map[string]interface{}) error {
 			s.PU_COMMIT_VERSION = toString(value)
 		case "PU_MQTT_PING_INTERVAL":
 			s.PU_MQTT_PING_INTERVAL = toInt(value)
+		case "PU_MQTT_KEEPALIVE":
+			s.PU_MQTT_KEEPALIVE = toInt(value)
 		case "PU_STATE_SEND_INTERVAL":
 			s.PU_STATE_SEND_INTERVAL = toInt(value)
 		case "PU_MIN_LOG_LEVEL":
@@ -186,6 +190,8 @@ func (s *Settings) Set(key string, value interface{}) {
 		s.PU_COMMIT_VERSION = toString(value)
 	case "PU_MQTT_PING_INTERVAL":
 		s.PU_MQTT_PING_INTERVAL = toInt(value)
+	case "PU_MQTT_KEEPALIVE":
+		s.PU_MQTT_KEEPALIVE = toInt(value)
 	case "PU_STATE_SEND_INTERVAL":
 		s.PU_STATE_SEND_INTERVAL = toInt(value)
 	case "PU_MIN_LOG_LEVEL":
@@ -226,6 +232,8 @@ func (s *Settings) Get(key string) (interface{}, bool) {
 		return s.PU_COMMIT_VERSION, true
 	case "PU_MQTT_PING_INTERVAL":
 		return s.PU_MQTT_PING_INTERVAL, true
+	case "PU_MQTT_KEEPALIVE":
+		return s.PU_MQTT_KEEPALIVE, true
 	case "PU_STATE_SEND_INTERVAL":
 		return s.PU_STATE_SEND_INTERVAL, true
 	case "PU_MIN_LOG_LEVEL":
@@ -275,6 +283,7 @@ func (s *Settings) All() map[string]interface{} {
 		"PU_ENCRYPT_KEY":         s.PU_ENCRYPT_KEY,
 		"PU_COMMIT_VERSION":      s.PU_COMMIT_VERSION,
 		"PU_MQTT_PING_INTERVAL":  s.PU_MQTT_PING_INTERVAL,
+		"PU_MQTT_KEEPALIVE":      s.PU_MQTT_KEEPALIVE,
 		"PU_STATE_SEND_INTERVAL": s.PU_STATE_SEND_INTERVAL,
 		"PU_MIN_LOG_LEVEL":       s.PU_MIN_LOG_LEVEL,
 		"PU_MAX_LOG_LENGTH":      s.PU_MAX_LOG_LENGTH,

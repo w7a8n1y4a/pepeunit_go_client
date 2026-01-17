@@ -51,8 +51,8 @@ func (c *PepeunitMQTTClient) connectLocked() error {
 	opts.SetConnectRetry(true)
 	opts.SetConnectTimeout(10 * time.Second)
 	opts.SetConnectRetryInterval(1 * time.Second)
-	opts.SetPingTimeout(10 * time.Second)
-	opts.SetKeepAlive(time.Duration(c.Settings.PU_MQTT_PING_INTERVAL) * time.Second)
+	opts.SetPingTimeout(time.Duration(c.Settings.PU_MQTT_PING_INTERVAL) * time.Second)
+	opts.SetKeepAlive(time.Duration(c.Settings.PU_MQTT_KEEPALIVE) * time.Second)
 	opts.SetWriteTimeout(10 * time.Second)
 
 	// Set connection lost handler

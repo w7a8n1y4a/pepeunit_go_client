@@ -58,6 +58,7 @@ const (
 	BaseInputTopicTypeEnvUpdatePepeunit    BaseInputTopicType = "env_update/pepeunit"
 	BaseInputTopicTypeSchemaUpdatePepeunit BaseInputTopicType = "schema_update/pepeunit"
 	BaseInputTopicTypeLogSyncPepeunit      BaseInputTopicType = "log_sync/pepeunit"
+	BaseInputTopicTypeResetPepeunit        BaseInputTopicType = "reset/pepeunit"
 )
 
 // BaseOutputTopicType represents base output topic types

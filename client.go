@@ -295,6 +295,8 @@ func (c *PepeunitClient) baseMQTTInputFunc(msg MQTTMessage) {
 					c.handleSchemaUpdate(ctx)
 				case string(BaseInputTopicTypeLogSyncPepeunit):
 					c.handleLogSync(ctx)
+				case string(BaseInputTopicTypeResetPepeunit):
+					c.handleReset()
 				}
 				return
 			}
@@ -449,7 +451,44 @@ func (c *PepeunitClient) handleSchemaUpdate(ctx context.Context) {
 	}
 }
 
-// handleLogSync handles log synchronization requests
+func (c *PepeunitClient) handleReset() {
+	c.logger.Info("Reset command received, restarting program")
+	c.restartProgram()
+}
+
+func (c *PepeunitClient) restartProgram() {
+	if c.restartMode == RestartModeRestartPopen {
+		c.StopMainCycle()
+		c.logger.Info("Run new main cycle in other process")
+		executable, err := os.Executable()
+		if err != nil {
+			c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+			return
+		}
+		cmd := exec.Command(executable, os.Args[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		if err := cmd.Start(); err != nil {
+			c.logger.Error(fmt.Sprintf("Failed to start new process: %v", err))
+			return
+		}
+		c.logger.Info("I`ll Be Back - stop this process")
+		os.Exit(0)
+	}
+
+	c.StopMainCycle()
+	c.logger.Info("I`ll Be Back - replacing current process")
+	executable, err := os.Executable()
+	if err != nil {
+		c.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+		return
+	}
+	if err := syscall.Exec(executable, os.Args, os.Environ()); err != nil {
+		c.logger.Error(fmt.Sprintf("Failed to exec new process: %v", err))
+	}
+}
+
 func (c *PepeunitClient) handleLogSync(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
